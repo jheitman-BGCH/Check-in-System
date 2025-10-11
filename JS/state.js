@@ -31,6 +31,10 @@ export const VISITOR_HEADER_MAP = [
     {
         key: 'Phone',
         aliases: ['Phone', 'Phone Number', 'Contact Number']
+    },
+    {
+        key: 'DateJoined',
+        aliases: ['Date Joined', 'Joined', 'DateJoined']
     }
 ];
 

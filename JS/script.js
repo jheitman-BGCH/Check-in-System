@@ -126,15 +126,22 @@ async function searchVisitor() {
     }
 }
 
-async function registerAndCheckIn() {
-    const visitorData = {
-        FirstName: firstNameInput.value.trim(),
-        LastName: lastNameInput.value.trim(),
-        Email: emailInput.value.trim(),
-        Phone: phoneInput.value.trim()
-    };
+/**
+ * Generates a complex, random Visitor ID.
+ * Format: V- followed by 8 random alphanumeric characters.
+ * @returns {string} The new visitor ID.
+ */
+function generateVisitorId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = 'V-';
+    for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
 
-    if (!visitorData.FirstName || !visitorData.LastName || !visitorData.Email) {
+async function registerAndCheckIn() {
+    if (!firstNameInput.value.trim() || !lastNameInput.value.trim() || !emailInput.value.trim()) {
         resultsDiv.innerText = 'Please fill out at least First Name, Last Name, and Email.';
         return;
     }
@@ -142,40 +149,31 @@ async function registerAndCheckIn() {
     resultsDiv.innerText = 'Registering new visitor...';
 
     try {
-        // Get headers ONCE at the beginning to find the ID column and avoid a second API call.
-        const headerResponse = await getSheetValues(`${VISITORS_SHEET_NAME}!1:1`);
-        if (!headerResponse.result.values || headerResponse.result.values.length === 0) {
-            throw new Error(`Could not read headers from the '${VISITORS_SHEET_NAME}' sheet.`);
-        }
-        const headers = headerResponse.result.values[0];
-        const idColumnIndex = headers.findIndex(h => String(h).toLowerCase().includes('id'));
-        if (idColumnIndex === -1) {
-            throw new Error('Cannot find a "VisitorID" or "ID" column in the Visitors sheet.');
-        }
-        const idColumnLetter = String.fromCharCode(65 + idColumnIndex);
+        // 1. Fetch all existing visitor IDs to ensure the new one is unique.
+        const response = await getSheetValues(`${VISITORS_SHEET_NAME}!A:A`); // Assuming ID is in column A
+        const existingIds = new Set(response.result.values ? response.result.values.flat() : []);
+        
+        // 2. Generate a new ID and ensure it's unique.
+        let newVisitorId;
+        do {
+            newVisitorId = generateVisitorId();
+        } while (existingIds.has(newVisitorId));
 
-        // Now, proceed with preparing and appending the data.
+        // 3. Create the full data object for the new visitor.
+        const visitorData = {
+            VisitorID: newVisitorId,
+            FirstName: firstNameInput.value.trim(),
+            LastName: lastNameInput.value.trim(),
+            Email: emailInput.value.trim(),
+            Phone: phoneInput.value.trim(),
+            DateJoined: new Date().toLocaleString()
+        };
+
+        // 4. Prepare the row data and append it to the sheet.
         const visitorRow = await prepareRowData(VISITORS_SHEET_NAME, visitorData, VISITOR_HEADER_MAP);
-        const appendResponse = await appendSheetValues(VISITORS_SHEET_NAME, [visitorRow]);
+        await appendSheetValues(VISITORS_SHEET_NAME, [visitorRow]);
         
-        // Use a more robust regex to find the new row number from the response range.
-        const updatedRange = appendResponse.result.updates.updatedRange;
-        const match = updatedRange.match(/(\d+)/);
-        if (!match) throw new Error("Could not determine new visitor's row number from range: " + updatedRange);
-        
-        const newVisitorRowNumber = match[1];
-        const newVisitorId = `V${newVisitorRowNumber}`;
-        visitorData.VisitorID = newVisitorId;
-        
-        // Update the VisitorID in the sheet using the pre-calculated column letter.
-        const idCell = `${VISITORS_SHEET_NAME}!${idColumnLetter}${newVisitorRowNumber}`;
-        await gapi.client.sheets.spreadsheets.values.update({
-            spreadsheetId: SPREADSHEET_ID,
-            range: idCell,
-            valueInputOption: 'USER_ENTERED',
-            resource: { values: [[newVisitorId]] }
-        });
-        
+        // 5. Proceed to check-in the new visitor.
         await checkIn(visitorData);
 
     } catch (err) {
