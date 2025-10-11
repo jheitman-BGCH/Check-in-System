@@ -96,6 +96,7 @@ export async function batchUpdateSheet(resource) {
 /**
  * Prepares a data object to be written to a sheet, aligning its values with the sheet's current column order.
  * This prevents data corruption if columns are reordered in the Google Sheet.
+ * This version uses a flexible '.includes()' check to match headers, making it more robust.
  * @param {string} sheetName The name of the sheet (e.g., 'Checkins').
  * @param {Object} dataObject A key-value object of the data to write (e.g., { FirstName: 'John', LastName: 'Doe' }).
  * @param {Array<Object>} headerMap The header mapping configuration for this data type (e.g., VISITOR_HEADER_MAP).
@@ -105,28 +106,51 @@ export async function prepareRowData(sheetName, dataObject, headerMap) {
     // 1. Fetch the live header row from the sheet.
     const headerResponse = await getSheetValues(`${sheetName}!1:1`);
     const liveHeaders = headerResponse.result.values ? headerResponse.result.values[0] : [];
+    console.log("DEBUG: Fetched live headers from sheet:", liveHeaders);
+
 
     if (liveHeaders.length === 0) {
         throw new Error(`Could not read headers from sheet: "${sheetName}". The sheet might be empty or missing a header row.`);
     }
 
-    // 2. Create a map from normalized header aliases to the canonical data key.
-    const aliasToKeyMap = new Map();
-    const normalize = (header) => String(header || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const normalize = (str) => String(str || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+    // 2. Create a map from the sheet's column index to our canonical data key (e.g., 0 -> 'Timestamp').
+    const columnIndexToDataKey = new Map();
+    const mappedKeys = new Set(); // To ensure we don't map the same key (e.g., 'FirstName') to multiple columns.
+
+    liveHeaders.forEach((header, index) => {
+        const normalizedHeader = normalize(header);
+
+        // Find the first data mapping that matches this header.
+        for (const mapping of headerMap) {
+            // If this canonical key (e.g., 'FirstName') has already been mapped to a column, skip it.
+            if (mappedKeys.has(mapping.key)) {
+                continue;
+            }
+
+            // Check if any of the key's aliases (e.g., 'first', 'first name') is part of the header.
+            const hasMatchingAlias = mapping.aliases.some(alias => normalizedHeader.includes(normalize(alias)));
+
+            if (hasMatchingAlias) {
+                columnIndexToDataKey.set(index, mapping.key); // Map this column index to the canonical key.
+                mappedKeys.add(mapping.key); // Mark this canonical key as used.
+                break; // This header is now claimed. Move to the next header in the sheet.
+            }
+        }
+    });
     
-    for (const mapping of headerMap) {
-        if (mapping.deprecated) continue; 
-        for (const alias of mapping.aliases) {
-            aliasToKeyMap.set(normalize(alias), mapping.key);
+    console.log("DEBUG: Created column index to data key map:", columnIndexToDataKey);
+
+    // 3. Build the row array based on the map we just created.
+    const rowData = Array(liveHeaders.length).fill('');
+    for (const [index, dataKey] of columnIndexToDataKey.entries()) {
+        if (dataObject.hasOwnProperty(dataKey)) {
+            rowData[index] = dataObject[dataKey];
         }
     }
 
-    // 3. Build the row array based on the live header order.
-    const rowData = liveHeaders.map(header => {
-        const normalizedHeader = normalize(header);
-        const dataKey = aliasToKeyMap.get(normalizedHeader);
-        return dataKey && dataObject.hasOwnProperty(dataKey) ? dataObject[dataKey] : '';
-    });
-
+    console.log("DEBUG: Prepared row data for submission:", rowData);
     return rowData;
 }
+
