@@ -123,11 +123,11 @@ function onLoginSuccess() {
         showRegistrationButton.style.display = 'none';
     };
 
-    // Start or reset the timer to refresh the token periodically
+    // Start or reset the timer to check the token periodically
     if (tokenCheckInterval) {
         clearInterval(tokenCheckInterval);
     }
-    tokenCheckInterval = setInterval(refreshToken, 30 * 1000); // Check every 30 seconds
+    tokenCheckInterval = setInterval(checkAndRefreshToken, 30 * 1000); // Check every 30 seconds
 }
 
 /**
@@ -173,25 +173,47 @@ function handleAuthClick() {
 }
 
 /**
- * Periodically and silently refreshes the OAuth token in the background to keep the session alive.
+ * Periodically checks if the OAuth token is about to expire and refreshes it if necessary.
  */
-function refreshToken() {
-    console.log('Checking and refreshing token...');
-    tokenClient.callback = (resp) => {
-        if (resp.error) {
-            console.error('Failed to refresh token silently:', resp.error);
-            // Stop trying to refresh and revert to the login screen as the session is lost.
-            clearInterval(tokenCheckInterval);
-            staffLoginSection.style.display = 'block';
-            visitorSection.style.display = 'none';
-            authorizeButton.style.visibility = 'visible';
-            resultsDiv.innerText = 'Your session has expired. Please log in again.';
-        } else {
-            console.log('Token refreshed successfully in the background.');
-            // The gapi client is automatically updated with the new token. No further action is needed.
-        }
-    };
-    tokenClient.requestAccessToken({ prompt: 'none' });
+function checkAndRefreshToken() {
+    const token = gapi.client.getToken();
+    if (!token) {
+        console.log('No token found, user needs to log in.');
+        clearInterval(tokenCheckInterval);
+        staffLoginSection.style.display = 'block';
+        visitorSection.style.display = 'none';
+        authorizeButton.style.visibility = 'visible';
+        resultsDiv.innerText = 'Your session has ended. Please log in again.';
+        return;
+    }
+
+    const expiresAt = token.expires_at;
+    const now = Date.now();
+    const threeMinutesInMs = 3 * 60 * 1000;
+
+    // Check if the token expires in the next 3 minutes or has already expired.
+    if (expiresAt - now < threeMinutesInMs) {
+        console.log('Token is expiring soon or has expired. Refreshing now...');
+        
+        tokenClient.callback = (resp) => {
+            if (resp.error) {
+                console.error('Failed to refresh token silently:', resp.error);
+                // Stop trying to refresh and revert to the login screen as the session is lost.
+                clearInterval(tokenCheckInterval);
+                staffLoginSection.style.display = 'block';
+                visitorSection.style.display = 'none';
+                authorizeButton.style.visibility = 'visible';
+                resultsDiv.innerText = 'Your session has expired. Please log in again.';
+            } else {
+                console.log('Token refreshed successfully in the background.');
+            }
+        };
+        tokenClient.requestAccessToken({ prompt: 'none' });
+
+    } else {
+        const minutesLeft = Math.round((expiresAt - now) / 60000);
+        console.log(`Token is still valid for approximately ${minutesLeft} minutes.`);
+    }
 }
 
 // Assign the click handler to the login button.
@@ -348,3 +370,4 @@ async function checkIn(visitorData) {
         resultsDiv.innerText = `Check-in Error: ${err.result?.error?.message || err.message}`;
     }
 }
+
