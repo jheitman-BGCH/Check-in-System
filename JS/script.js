@@ -75,9 +75,9 @@ function rotateBackgroundImage() {
     const randomIndex = Math.floor(Math.random() * backgroundImageUrls.length);
     const imageUrl = backgroundImageUrls[randomIndex];
     
-    // Apply a blue gradient overlay and the new image.
+    // Apply a blue gradient overlay with adjusted opacity and the new image.
     document.body.style.backgroundImage = `
-        linear-gradient(to right, rgba(0, 90, 156, 0.75), rgba(0, 123, 255, 0.6)),
+        linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)),
         url('${imageUrl}')
     `;
 }
