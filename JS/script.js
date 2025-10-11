@@ -31,6 +31,7 @@ const subscribeCheckbox = document.getElementById('subscribe-checkbox');
 
 
 let tokenClient;
+let tokenCheckInterval = null; // To hold the token refresh interval
 
 // --- GAPI/GIS INITIALIZATION ---
 window.addEventListener('google-scripts-ready', initializeApp);
@@ -82,6 +83,9 @@ function rotateBackgroundImage() {
     `;
 }
 
+/**
+ * Initializes the Google API client and token client, then attempts a silent login.
+ */
 function initializeApp() {
     // Fetch the list of images from GitHub when the app starts.
     fetchBackgroundImages();
@@ -92,42 +96,107 @@ function initializeApp() {
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: CLIENT_ID,
             scope: SCOPES,
-            callback: '', // Will be defined dynamically on click
+            callback: '', // Will be defined dynamically
         });
         
-        authorizeButton.style.visibility = 'visible'; // Enable the login button
-        console.log("App initialized successfully.");
+        // Try to sign in silently when the app loads
+        trySilentLogin();
     });
 }
 
 // --- AUTHENTICATION ---
-authorizeButton.onclick = () => handleAuthClick();
 
-function handleAuthClick() {
-    tokenClient.callback = async (resp) => {
+/**
+ * Handles the UI and logic changes upon a successful login or token refresh.
+ */
+function onLoginSuccess() {
+    console.log("Authentication successful.");
+    // Hide login section and show the main visitor kiosk interface
+    staffLoginSection.style.display = 'none';
+    visitorSection.style.display = 'block';
+    
+    // Attach main event listeners. Using .onclick ensures we don't add duplicate listeners on token refresh.
+    searchButton.onclick = searchVisitor;
+    registerButton.onclick = registerAndCheckIn;
+    showRegistrationButton.onclick = () => {
+        registrationForm.style.display = 'block';
+        showRegistrationButton.style.display = 'none';
+    };
+
+    // Start or reset the timer to refresh the token periodically
+    if (tokenCheckInterval) {
+        clearInterval(tokenCheckInterval);
+    }
+    tokenCheckInterval = setInterval(refreshToken, 30 * 1000); // Check every 30 seconds
+}
+
+/**
+ * Attempts to sign in the user silently without requiring user interaction.
+ * This is for users who have previously granted consent.
+ */
+function trySilentLogin() {
+    console.log("Attempting silent login...");
+    tokenClient.callback = (resp) => {
         if (resp.error) {
-            console.error('Google token error:', resp.error);
+            console.warn('Silent login failed. User will need to log in manually.', resp.error.message);
+            // If silent login fails, make the manual login button visible.
+            authorizeButton.style.visibility = 'visible';
+        } else {
+            console.log("Silent login successful.");
+            onLoginSuccess();
+        }
+    };
+    // 'none' prompt prevents any UI from showing.
+    tokenClient.requestAccessToken({ prompt: 'none' });
+}
+
+/**
+ * Handles the manual login button click for the first-time sign-in or re-authentication.
+ */
+function handleAuthClick() {
+    console.log("Manual login initiated...");
+    tokenClient.callback = (resp) => {
+        if (resp.error) {
+            console.error('Google token error during manual login:', resp.error);
             resultsDiv.innerText = 'Authentication failed. Please try again.';
             return;
         }
-        // On successful login, hide login section and show visitor kiosk
-        staffLoginSection.style.display = 'none';
-        visitorSection.style.display = 'block';
-        // Attach main event listeners now that we are authenticated
-        searchButton.addEventListener('click', searchVisitor);
-        registerButton.addEventListener('click', registerAndCheckIn);
-        showRegistrationButton.addEventListener('click', () => {
-            registrationForm.style.display = 'block';
-            showRegistrationButton.style.display = 'none'; // Hide the button after it's clicked
-        });
+        onLoginSuccess();
     };
 
+    // If there's no token, prompt for user consent. Otherwise, just refresh.
     if (gapi.client.getToken() === null) {
         tokenClient.requestAccessToken({ prompt: 'consent' });
     } else {
         tokenClient.requestAccessToken({ prompt: '' });
     }
 }
+
+/**
+ * Periodically and silently refreshes the OAuth token in the background to keep the session alive.
+ */
+function refreshToken() {
+    console.log('Checking and refreshing token...');
+    tokenClient.callback = (resp) => {
+        if (resp.error) {
+            console.error('Failed to refresh token silently:', resp.error);
+            // Stop trying to refresh and revert to the login screen as the session is lost.
+            clearInterval(tokenCheckInterval);
+            staffLoginSection.style.display = 'block';
+            visitorSection.style.display = 'none';
+            authorizeButton.style.visibility = 'visible';
+            resultsDiv.innerText = 'Your session has expired. Please log in again.';
+        } else {
+            console.log('Token refreshed successfully in the background.');
+            // The gapi client is automatically updated with the new token. No further action is needed.
+        }
+    };
+    tokenClient.requestAccessToken({ prompt: 'none' });
+}
+
+// Assign the click handler to the login button.
+authorizeButton.onclick = handleAuthClick;
+
 
 // --- SPREADSHEET LOGIC ---
 
@@ -279,4 +348,3 @@ async function checkIn(visitorData) {
         resultsDiv.innerText = `Check-in Error: ${err.result?.error?.message || err.message}`;
     }
 }
-
