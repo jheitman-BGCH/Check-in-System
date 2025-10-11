@@ -31,7 +31,7 @@ body {
 /* New styles for the logo */
 #main-logo {
     max-width: 250px; /* Adjust size as needed */
-    margin: 0 auto 1.5em auto; /* Center logo and add space below */
+    margin: 0 auto 0.5em auto; /* Center logo and add space below */
     display: block;
 }
 
@@ -54,7 +54,7 @@ h2 {
 
 h3 {
     font-size: 1.2em;
-    margin-top: 1.5em;
+    margin-top: 1em;
     border-top: 1px solid #eee;
     padding-top: 1em;
 }

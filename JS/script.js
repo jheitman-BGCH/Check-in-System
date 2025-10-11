@@ -52,26 +52,34 @@ window.addEventListener('google-scripts-ready', initializeApp);
  * Fetches the list of background images from the specified GitHub repository folder.
  */
 async function fetchBackgroundImages() {
+    console.log("DEBUG: BG: Starting fetchBackgroundImages...");
     const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${IMAGE_FOLDER}`;
+    console.log(`DEBUG: BG: Fetching from API URL: ${apiUrl}`);
     try {
         const response = await fetch(apiUrl);
+        console.log(`DEBUG: BG: GitHub API response status: ${response.status}`);
         if (!response.ok) {
             throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
         }
         const files = await response.json();
+        console.log("DEBUG: BG: Received files from GitHub API:", files);
+
         // Filter out any non-file entries and map to the direct download URL.
         backgroundImageUrls = files
             .filter(file => file.type === 'file')
             .map(file => file.download_url);
+        
+        console.log("DEBUG: BG: Parsed image URLs:", backgroundImageUrls);
 
         if (backgroundImageUrls.length > 0) {
             // Set the initial background image once the list is loaded.
+            console.log("DEBUG: BG: Found images. Calling rotateBackgroundImage().");
             rotateBackgroundImage();
         } else {
-            console.warn(`No images found in the '${IMAGE_FOLDER}' directory or the directory does not exist.`);
+            console.warn(`DEBUG: BG: No images found in the '${IMAGE_FOLDER}' directory or the directory does not exist.`);
         }
     } catch (error) {
-        console.error("Failed to fetch background images from GitHub:", error);
+        console.error("DEBUG: BG: Failed to fetch background images from GitHub:", error);
         // Optional: Set a fallback background color if images fail to load.
         document.body.style.backgroundColor = '#e0f7ff';
     }
@@ -82,17 +90,24 @@ async function fetchBackgroundImages() {
  * Sets a new, random background image from the fetched list.
  */
 function rotateBackgroundImage() {
-    if (backgroundImageUrls.length === 0) return; // Don't run if no images were loaded.
+    console.log("DEBUG: BG: rotateBackgroundImage() called.");
+    if (backgroundImageUrls.length === 0) {
+        console.warn("DEBUG: BG: Cannot rotate image, backgroundImageUrls array is empty.");
+        return; // Don't run if no images were loaded.
+    }
 
     // Select a random image from the array.
     const randomIndex = Math.floor(Math.random() * backgroundImageUrls.length);
     const imageUrl = backgroundImageUrls[randomIndex];
+    console.log(`DEBUG: BG: Selected image URL: ${imageUrl}`);
     
     // Apply a blue gradient overlay with adjusted opacity and the new image.
-    document.body.style.backgroundImage = `
+    const styleString = `
         linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)),
         url('${imageUrl}')
     `;
+    document.body.style.backgroundImage = styleString;
+    console.log("DEBUG: BG: Applied new background image and gradient to body.");
 }
 
 /**
