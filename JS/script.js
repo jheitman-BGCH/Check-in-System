@@ -142,25 +142,33 @@ async function registerAndCheckIn() {
     resultsDiv.innerText = 'Registering new visitor...';
 
     try {
+        // Get headers ONCE at the beginning to find the ID column and avoid a second API call.
+        const headerResponse = await getSheetValues(`${VISITORS_SHEET_NAME}!1:1`);
+        if (!headerResponse.result.values || headerResponse.result.values.length === 0) {
+            throw new Error(`Could not read headers from the '${VISITORS_SHEET_NAME}' sheet.`);
+        }
+        const headers = headerResponse.result.values[0];
+        const idColumnIndex = headers.findIndex(h => String(h).toLowerCase().includes('id'));
+        if (idColumnIndex === -1) {
+            throw new Error('Cannot find a "VisitorID" or "ID" column in the Visitors sheet.');
+        }
+        const idColumnLetter = String.fromCharCode(65 + idColumnIndex);
+
+        // Now, proceed with preparing and appending the data.
         const visitorRow = await prepareRowData(VISITORS_SHEET_NAME, visitorData, VISITOR_HEADER_MAP);
         const appendResponse = await appendSheetValues(VISITORS_SHEET_NAME, [visitorRow]);
         
+        // Use a more robust regex to find the new row number from the response range.
         const updatedRange = appendResponse.result.updates.updatedRange;
-        const match = updatedRange.match(/!A(\d+)/);
-        if (!match) throw new Error("Could not determine new visitor's row number for ID.");
+        const match = updatedRange.match(/(\d+)/);
+        if (!match) throw new Error("Could not determine new visitor's row number from range: " + updatedRange);
         
         const newVisitorRowNumber = match[1];
         const newVisitorId = `V${newVisitorRowNumber}`;
         visitorData.VisitorID = newVisitorId;
         
-        // Find the column index for the VisitorID
-        const headerResponse = await getSheetValues(`${VISITORS_SHEET_NAME}!1:1`);
-        const headers = headerResponse.result.values ? headerResponse.result.values[0] : [];
-        const idColumnIndex = headers.findIndex(h => String(h).toLowerCase().includes('id'));
-        if (idColumnIndex === -1) throw new Error('Cannot find VisitorID column to update.');
-        const idColumnLetter = String.fromCharCode(65 + idColumnIndex);
+        // Update the VisitorID in the sheet using the pre-calculated column letter.
         const idCell = `${VISITORS_SHEET_NAME}!${idColumnLetter}${newVisitorRowNumber}`;
-
         await gapi.client.sheets.spreadsheets.values.update({
             spreadsheetId: SPREADSHEET_ID,
             range: idCell,
@@ -172,7 +180,8 @@ async function registerAndCheckIn() {
 
     } catch (err) {
         console.error('Error during registration:', err);
-        resultsDiv.innerText = `Registration Error: ${err.result?.error?.message || err.message}`;
+        const errorMessage = err.result?.error?.message || err.message || 'An unknown error occurred.';
+        resultsDiv.innerText = `Registration Error: ${errorMessage}`;
     }
 }
 
