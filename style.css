@@ -15,15 +15,16 @@ body {
 
 #app-container {
     background: white;
-    padding: 2em 3em;
+    /* Updated padding to 20px top/bottom and 40px left/right */
+    padding: 20px 40px;
     border-radius: 12px;
     box-shadow: 0 6px 24px rgba(0,0,0,0.08);
     width: 90%;
     max-width: 500px;
     text-align: center;
     border: 1px solid #e0e0e0;
-    /* Added a border top to mimic website branding */
-    border-top: 5px solid #005a9c; 
+    /* Changed the border-top color to orange for better contrast */
+    border-top: 5px solid #FDB813; 
 }
 
 /* New styles for the logo */
@@ -181,3 +182,4 @@ hr {
 #results button:hover {
     background-color: #0056b3; /* Darker blue on hover */
 }
+
