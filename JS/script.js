@@ -1,6 +1,5 @@
-// js/script.js
 import { CLIENT_ID, DISCOVERY_DOC, SCOPES } from './authConfig.js';
-import { VISITORS_SHEET_NAME, CHECKINS_SHEET_NAME, VISITOR_HEADER_MAP, CHECKINS_HEADER_MAP } from './state.js';
+import { SPREADSHEET_ID, VISITORS_SHEET_NAME, CHECKINS_SHEET_NAME, VISITOR_HEADER_MAP, CHECKINS_HEADER_MAP } from './state.js';
 import { getSheetValues, appendSheetValues, prepareRowData } from './sheetsService.js';
 
 // --- DOM ELEMENTS ---
@@ -21,36 +20,25 @@ let tokenClient;
 // --- GAPI/GIS INITIALIZATION ---
 
 /**
- * Initializes the Google API client and the Google Identity Services client.
- * This function is called after the main Google API scripts have loaded.
- * It uses Promises to ensure both libraries are ready before enabling the app.
+ * Listens for the custom 'google-scripts-ready' event from index.html
+ * and then initializes the application. This ensures all external scripts are loaded first.
  */
+window.addEventListener('google-scripts-ready', initializeApp);
+
 function initializeApp() {
-    const gapiPromise = new Promise((resolve) => gapi.load('client', resolve));
-    const gisPromise = new Promise((resolve) => {
+    gapi.load('client', async () => {
+        await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
+        
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: CLIENT_ID,
             scope: SCOPES,
             callback: '', // Will be defined dynamically on click
         });
-        resolve();
+        
+        authorizeButton.style.visibility = 'visible'; // Enable the login button
+        console.log("App initialized successfully.");
     });
-
-    Promise.all([gapiPromise, gisPromise])
-        .then(async () => {
-            // Both libraries are loaded. Now initialize the GAPI client.
-            await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
-            authorizeButton.style.visibility = 'visible'; // Enable the login button
-            console.log("App initialized successfully.");
-        })
-        .catch(err => {
-            console.error("Error during app initialization:", err);
-            staffLoginSection.innerHTML = '<p>Error: Could not initialize Google services. Please refresh the page.</p>';
-        });
 }
-
-// Assign the initializer to the window so it can be called by the Google script loader.
-window.onGoogleScriptsLoaded = initializeApp;
 
 // --- AUTHENTICATION ---
 authorizeButton.onclick = () => handleAuthClick();
@@ -70,20 +58,15 @@ function handleAuthClick() {
         registerButton.addEventListener('click', registerAndCheckIn);
     };
 
-    // If the user has not granted access, ask for consent.
     if (gapi.client.getToken() === null) {
         tokenClient.requestAccessToken({ prompt: 'consent' });
     } else {
-        // Otherwise, just get a token silently.
         tokenClient.requestAccessToken({ prompt: '' });
     }
 }
 
 // --- SPREADSHEET LOGIC ---
 
-/**
- * Searches the 'Visitors' sheet for a record by email or phone.
- */
 async function searchVisitor() {
     const searchTerm = searchBox.value.trim();
     if (!searchTerm) {
@@ -93,7 +76,7 @@ async function searchVisitor() {
     resultsDiv.innerText = 'Searching...';
 
     try {
-        const response = await getSheetValues(`${VISITORS_SHEET_NAME}!A:E`); // Assuming data is within first 5 columns
+        const response = await getSheetValues(`${VISITORS_SHEET_NAME}!A:E`);
         const rows = response.result.values;
 
         if (!rows || rows.length <= 1) {
@@ -120,7 +103,7 @@ async function searchVisitor() {
 
             if (email.toLowerCase() === searchTerm.toLowerCase() || (phone && phone === searchTerm)) {
                 const visitorData = {
-                    VisitorID: row[idIndex] || `ROW${i + 1}`, // Fallback to row number if ID is missing
+                    VisitorID: row[idIndex] || `ROW${i + 1}`,
                     FirstName: row[firstNameIndex] || '',
                     LastName: row[lastNameIndex] || '',
                     Email: email,
@@ -143,9 +126,6 @@ async function searchVisitor() {
     }
 }
 
-/**
- * Gathers data from the form, registers a new visitor, and then checks them in.
- */
 async function registerAndCheckIn() {
     const visitorData = {
         FirstName: firstNameInput.value.trim(),
@@ -162,28 +142,32 @@ async function registerAndCheckIn() {
     resultsDiv.innerText = 'Registering new visitor...';
 
     try {
-        // 1. Prepare and append data to the 'Visitors' sheet
         const visitorRow = await prepareRowData(VISITORS_SHEET_NAME, visitorData, VISITOR_HEADER_MAP);
         const appendResponse = await appendSheetValues(VISITORS_SHEET_NAME, [visitorRow]);
         
-        // 2. Extract the row number from the response to use as the VisitorID
         const updatedRange = appendResponse.result.updates.updatedRange;
-        const match = updatedRange.match(/!A(\d+):/);
+        const match = updatedRange.match(/!A(\d+)/);
         if (!match) throw new Error("Could not determine new visitor's row number for ID.");
-        const newVisitorId = match[1];
+        
+        const newVisitorRowNumber = match[1];
+        const newVisitorId = `V${newVisitorRowNumber}`;
+        visitorData.VisitorID = newVisitorId;
+        
+        // Find the column index for the VisitorID
+        const headerResponse = await getSheetValues(`${VISITORS_SHEET_NAME}!1:1`);
+        const headers = headerResponse.result.values ? headerResponse.result.values[0] : [];
+        const idColumnIndex = headers.findIndex(h => String(h).toLowerCase().includes('id'));
+        if (idColumnIndex === -1) throw new Error('Cannot find VisitorID column to update.');
+        const idColumnLetter = String.fromCharCode(65 + idColumnIndex);
+        const idCell = `${VISITORS_SHEET_NAME}!${idColumnLetter}${newVisitorRowNumber}`;
 
-        // 3. Update the 'Visitors' sheet with the new ID
-        const idCell = `${VISITORS_SHEET_NAME}!A${newVisitorId}`;
         await gapi.client.sheets.spreadsheets.values.update({
-            spreadsheetId: gapi.client.sheets.SPREADSHEET_ID, // This needs to be set properly
+            spreadsheetId: SPREADSHEET_ID,
             range: idCell,
             valueInputOption: 'USER_ENTERED',
-            resource: { values: [[`V${newVisitorId}`]] }
+            resource: { values: [[newVisitorId]] }
         });
         
-        visitorData.VisitorID = `V${newVisitorId}`; // Add the new ID to our object
-        
-        // 4. Now, check the new visitor in
         await checkIn(visitorData);
 
     } catch (err) {
@@ -192,10 +176,6 @@ async function registerAndCheckIn() {
     }
 }
 
-/**
- * Logs a check-in for a visitor (both existing and new).
- * @param {Object} visitorData The visitor's data, must include VisitorID, FirstName, and LastName.
- */
 async function checkIn(visitorData) {
     resultsDiv.innerText = `Checking in ${visitorData.FirstName}...`;
     try {
@@ -209,7 +189,6 @@ async function checkIn(visitorData) {
         await appendSheetValues(CHECKINS_SHEET_NAME, [checkinRow]);
 
         resultsDiv.innerText = `Successfully checked in ${visitorData.FirstName} ${visitorData.LastName}!`;
-        // Clear all input fields for the next visitor
         firstNameInput.value = '';
         lastNameInput.value = '';
         emailInput.value = '';
@@ -221,3 +200,4 @@ async function checkIn(visitorData) {
         resultsDiv.innerText = `Check-in Error: ${err.result?.error?.message || err.message}`;
     }
 }
+

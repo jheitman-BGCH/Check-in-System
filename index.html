@@ -13,7 +13,6 @@
 
         <div id="staff-login-section">
             <p>Please log in to activate the check-in kiosk.</p>
-            <!-- The button is hidden by default and made visible by the script when ready -->
             <button id="authorize_button" style="visibility:hidden;">BGCH Staff Login</button>
         </div>
 
@@ -36,11 +35,23 @@
 
     </div>
 
-    <!-- The 'onload' callback is now the same for both scripts to ensure a single entry point -->
-    <script async defer src="https://apis.google.com/js/api.js" onload="onGoogleScriptsLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="onGoogleScriptsLoaded()"></script>
-    <!-- The main script is loaded as a module from the correct path -->
+    <!-- This inline script safely handles the loading of the Google APIs -->
+    <script>
+        let scriptsLoaded = 0;
+        function onGoogleScriptsLoad() {
+            scriptsLoaded++;
+            if (scriptsLoaded === 2) {
+                // Both scripts are loaded, so we can now signal the main app module.
+                window.dispatchEvent(new Event('google-scripts-ready'));
+            }
+        }
+    </script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="onGoogleScriptsLoad()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="onGoogleScriptsLoad()"></script>
+    
+    <!-- The main script is loaded as a module and will listen for the event above -->
     <script type="module" src="JS/script.js"></script>
 
 </body>
 </html>
+
