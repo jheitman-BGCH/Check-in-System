@@ -1,19 +1,20 @@
-// IMPORTANT: Update this with your actual Google Spreadsheet ID.
+// js/state.js
 export const SPREADSHEET_ID = '112D0IJ7RVyARmVFv_J26xAatSJKphnj-A9M6dp1gWl8';
 
-// The name of the sheet (tab) in your Google Sheet where check-in data is stored.
-export const SHEET_NAME = 'Checkins';
+// The names of the sheets (tabs) in your Google Sheet.
+export const VISITORS_SHEET_NAME = 'Visitors';
+export const CHECKINS_SHEET_NAME = 'Checkins';
+
 
 /**
- * Defines the canonical data keys and possible header aliases for visitor data.
+ * Defines the canonical data keys and possible header aliases for the 'Visitors' sheet.
  * This allows the `prepareRowData` function to correctly map data from the application
  * to the columns in the Google Sheet, even if the column names or order change slightly.
- * For example, if your sheet has a column named "First", it will correctly map to the "FirstName" field.
  */
 export const VISITOR_HEADER_MAP = [
     {
-        key: 'Timestamp',
-        aliases: ['Timestamp', 'Date', 'Time', 'Check-in Time']
+        key: 'VisitorID',
+        aliases: ['Visitor ID', 'ID', 'VisitorID']
     },
     {
         key: 'FirstName',
@@ -30,5 +31,23 @@ export const VISITOR_HEADER_MAP = [
     {
         key: 'Phone',
         aliases: ['Phone', 'Phone Number', 'Contact Number']
+    }
+];
+
+/**
+ * Defines the canonical data keys and possible header aliases for the 'Checkins' sheet.
+ */
+export const CHECKINS_HEADER_MAP = [
+    {
+        key: 'Timestamp',
+        aliases: ['Timestamp', 'Date', 'Time', 'Check-in Time']
+    },
+    {
+        key: 'VisitorID',
+        aliases: ['Visitor ID', 'ID', 'VisitorID']
+    },
+    {
+        key: 'FullName', // Included for easier reading in the check-in log
+        aliases: ['Name', 'Full Name', 'Visitor']
     }
 ];
