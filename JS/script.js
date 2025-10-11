@@ -107,6 +107,32 @@ function initializeApp() {
 // --- AUTHENTICATION ---
 
 /**
+ * A shared callback handler for all token responses. It calculates and injects
+ * the `expires_at` timestamp into the gapi token object for consistent time tracking.
+ * @param {object} resp - The token response from Google Identity Services.
+ * @returns {boolean} - True if the token was handled successfully, false otherwise.
+ */
+function handleTokenResponse(resp) {
+    if (resp.error) {
+        console.error('Google token error:', resp.error);
+        return false;
+    }
+
+    // The gapi client library might not automatically create the 'expires_at' timestamp.
+    // We'll calculate it manually from the 'expires_in' value (in seconds) and inject it.
+    const token = gapi.client.getToken();
+    if (token && resp.expires_in) {
+        const expiresInMs = parseInt(resp.expires_in, 10) * 1000;
+        token.expires_at = Date.now() + expiresInMs;
+        gapi.client.setToken(token); // Ensure our modified token object is used.
+        console.log("Token processed, session expires at:", new Date(token.expires_at).toLocaleTimeString());
+    }
+    
+    return true;
+}
+
+
+/**
  * Handles the UI and logic changes upon a successful login or token refresh.
  */
 function onLoginSuccess() {
@@ -132,21 +158,18 @@ function onLoginSuccess() {
 
 /**
  * Attempts to sign in the user silently without requiring user interaction.
- * This is for users who have previously granted consent.
  */
 function trySilentLogin() {
     console.log("Attempting silent login...");
     tokenClient.callback = (resp) => {
-        if (resp.error) {
-            console.warn('Silent login failed. User will need to log in manually.', resp.error.message);
-            // If silent login fails, make the manual login button visible.
-            authorizeButton.style.visibility = 'visible';
-        } else {
+        if (handleTokenResponse(resp)) {
             console.log("Silent login successful.");
             onLoginSuccess();
+        } else {
+            console.warn('Silent login failed. User will need to log in manually.', resp.error.message);
+            authorizeButton.style.visibility = 'visible';
         }
     };
-    // 'none' prompt prevents any UI from showing.
     tokenClient.requestAccessToken({ prompt: 'none' });
 }
 
@@ -156,20 +179,39 @@ function trySilentLogin() {
 function handleAuthClick() {
     console.log("Manual login initiated...");
     tokenClient.callback = (resp) => {
-        if (resp.error) {
-            console.error('Google token error during manual login:', resp.error);
+        if (handleTokenResponse(resp)) {
+            onLoginSuccess();
+        } else {
             resultsDiv.innerText = 'Authentication failed. Please try again.';
-            return;
         }
-        onLoginSuccess();
     };
 
-    // If there's no token, prompt for user consent. Otherwise, just refresh.
     if (gapi.client.getToken() === null) {
         tokenClient.requestAccessToken({ prompt: 'consent' });
     } else {
         tokenClient.requestAccessToken({ prompt: '' });
     }
+}
+
+/**
+ * Performs a silent token refresh.
+ */
+function refreshToken() {
+    console.log('Attempting to refresh token...');
+    tokenClient.callback = (resp) => {
+        if (handleTokenResponse(resp)) {
+            console.log('Token refreshed successfully in the background.');
+        } else {
+            console.error('Failed to refresh token silently.');
+            // Stop trying to refresh and revert to the login screen as the session is lost.
+            clearInterval(tokenCheckInterval);
+            staffLoginSection.style.display = 'block';
+            visitorSection.style.display = 'none';
+            authorizeButton.style.visibility = 'visible';
+            resultsDiv.innerText = 'Your session has expired. Please log in again.';
+        }
+    };
+    tokenClient.requestAccessToken({ prompt: 'none' });
 }
 
 /**
@@ -187,29 +229,23 @@ function checkAndRefreshToken() {
         return;
     }
 
+    // Now, token.expires_at should be a reliable number that we set ourselves.
     const expiresAt = token.expires_at;
     const now = Date.now();
+
+    // Add a check to ensure expiresAt is a valid number before proceeding.
+    if (typeof expiresAt !== 'number' || isNaN(expiresAt)) {
+        console.error('Token expiration time is missing or invalid. Attempting to refresh.');
+        refreshToken(); // If expiresAt is invalid, it's safer to just try refreshing.
+        return;
+    }
+
     const threeMinutesInMs = 3 * 60 * 1000;
 
     // Check if the token expires in the next 3 minutes or has already expired.
     if (expiresAt - now < threeMinutesInMs) {
         console.log('Token is expiring soon or has expired. Refreshing now...');
-        
-        tokenClient.callback = (resp) => {
-            if (resp.error) {
-                console.error('Failed to refresh token silently:', resp.error);
-                // Stop trying to refresh and revert to the login screen as the session is lost.
-                clearInterval(tokenCheckInterval);
-                staffLoginSection.style.display = 'block';
-                visitorSection.style.display = 'none';
-                authorizeButton.style.visibility = 'visible';
-                resultsDiv.innerText = 'Your session has expired. Please log in again.';
-            } else {
-                console.log('Token refreshed successfully in the background.');
-            }
-        };
-        tokenClient.requestAccessToken({ prompt: 'none' });
-
+        refreshToken();
     } else {
         const minutesLeft = Math.round((expiresAt - now) / 60000);
         console.log(`Token is still valid for approximately ${minutesLeft} minutes.`);
