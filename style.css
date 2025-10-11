@@ -22,7 +22,17 @@ body {
     max-width: 500px;
     text-align: center;
     border: 1px solid #e0e0e0;
+    /* Added a border top to mimic website branding */
+    border-top: 5px solid #005a9c; 
 }
+
+/* New styles for the logo */
+#main-logo {
+    max-width: 250px; /* Adjust size as needed */
+    margin: 0 auto 1.5em auto; /* Center logo and add space below */
+    display: block;
+}
+
 
 h1, h2, h3 {
     color: #005a9c; /* BGCH Blue */
@@ -36,7 +46,8 @@ h1 {
 
 h2 {
     font-size: 1.5em;
-    margin-top: 1em;
+    margin-top: 0; /* Adjusted for new layout */
+    margin-bottom: 0.5em;
 }
 
 h3 {
@@ -73,7 +84,7 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="tel"]:focus {
 }
 
 button {
-    background-color: #007bff;
+    background-color: #007bff; /* Primary action blue */
     color: white;
     padding: 12px 25px;
     border: none;
@@ -94,14 +105,16 @@ button:active {
     transform: scale(0.98);
 }
 
+/* Updated login button to match website's "Donate" button style */
 #authorize_button {
     width: auto;
-    padding: 12px 30px;
-    background-color: #28a745;
+    padding: 12px 40px;
+    background-color: #FDB813; /* Gold/Orange color */
+    font-weight: bold;
 }
 
 #authorize_button:hover {
-    background-color: #218838;
+    background-color: #e4a60b; /* Darker gold on hover */
 }
 
 /* Style for the new "Register Here" button */
@@ -159,11 +172,12 @@ hr {
     font-weight: 500;
 }
 
+/* Check-in button inside results is a primary action button */
 #results button {
     width: auto;
-    background-color: #17a2b8;
+    background-color: #007bff; /* Primary action blue */
 }
 
 #results button:hover {
-    background-color: #138496;
+    background-color: #0056b3; /* Darker blue on hover */
 }
