@@ -2,6 +2,17 @@ import { CLIENT_ID, DISCOVERY_DOC, SCOPES } from './authConfig.js';
 import { SPREADSHEET_ID, VISITORS_SHEET_NAME, CHECKINS_SHEET_NAME, VISITOR_HEADER_MAP, CHECKINS_HEADER_MAP } from './state.js';
 import { getSheetValues, appendSheetValues, prepareRowData } from './sheetsService.js';
 
+// --- BACKGROUND IMAGES ---
+// This will hold the URLs of images fetched dynamically from your GitHub repository.
+let backgroundImageUrls = [];
+
+// --- GITHUB REPO CONFIG ---
+// Inferred from your project structure. Change these if your username or repo name is different.
+const GITHUB_USER = 'jheitman-bgch';
+const GITHUB_REPO = 'check-in-system';
+const IMAGE_FOLDER = 'bgimg'; // The folder in your repo containing the background images.
+
+
 // --- DOM ELEMENTS ---
 const authorizeButton = document.getElementById('authorize_button');
 const staffLoginSection = document.getElementById('staff-login-section');
@@ -14,18 +25,67 @@ const lastNameInput = document.getElementById('lastname-input');
 const emailInput = document.getElementById('email-input');
 const phoneInput = document.getElementById('phone-input');
 const searchBox = document.getElementById('search-box');
+const showRegistrationButton = document.getElementById('show-registration-button');
+const registrationForm = document.getElementById('registration-form');
+const subscribeCheckbox = document.getElementById('subscribe-checkbox');
+
 
 let tokenClient;
 
 // --- GAPI/GIS INITIALIZATION ---
-
-/**
- * Listens for the custom 'google-scripts-ready' event from index.html
- * and then initializes the application. This ensures all external scripts are loaded first.
- */
 window.addEventListener('google-scripts-ready', initializeApp);
 
+/**
+ * Fetches the list of background images from the specified GitHub repository folder.
+ */
+async function fetchBackgroundImages() {
+    const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${IMAGE_FOLDER}`;
+    try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+            throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
+        }
+        const files = await response.json();
+        // Filter out any non-file entries and map to the direct download URL.
+        backgroundImageUrls = files
+            .filter(file => file.type === 'file')
+            .map(file => file.download_url);
+
+        if (backgroundImageUrls.length > 0) {
+            // Set the initial background image once the list is loaded.
+            rotateBackgroundImage();
+        } else {
+            console.warn(`No images found in the '${IMAGE_FOLDER}' directory or the directory does not exist.`);
+        }
+    } catch (error) {
+        console.error("Failed to fetch background images from GitHub:", error);
+        // Optional: Set a fallback background color if images fail to load.
+        document.body.style.backgroundColor = '#e0f7ff';
+    }
+}
+
+
+/**
+ * Sets a new, random background image from the fetched list.
+ */
+function rotateBackgroundImage() {
+    if (backgroundImageUrls.length === 0) return; // Don't run if no images were loaded.
+
+    // Select a random image from the array.
+    const randomIndex = Math.floor(Math.random() * backgroundImageUrls.length);
+    const imageUrl = backgroundImageUrls[randomIndex];
+    
+    // Apply a blue gradient overlay and the new image.
+    document.body.style.backgroundImage = `
+        linear-gradient(to right, rgba(0, 90, 156, 0.75), rgba(0, 123, 255, 0.6)),
+        url('${imageUrl}')
+    `;
+}
+
 function initializeApp() {
+    // Fetch the list of images from GitHub when the app starts.
+    fetchBackgroundImages();
+
     gapi.load('client', async () => {
         await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
         
@@ -56,6 +116,10 @@ function handleAuthClick() {
         // Attach main event listeners now that we are authenticated
         searchButton.addEventListener('click', searchVisitor);
         registerButton.addEventListener('click', registerAndCheckIn);
+        showRegistrationButton.addEventListener('click', () => {
+            registrationForm.style.display = 'block';
+            showRegistrationButton.style.display = 'none'; // Hide the button after it's clicked
+        });
     };
 
     if (gapi.client.getToken() === null) {
@@ -68,12 +132,15 @@ function handleAuthClick() {
 // --- SPREADSHEET LOGIC ---
 
 async function searchVisitor() {
+    // ... function content remains the same ...
     const searchTerm = searchBox.value.trim();
     if (!searchTerm) {
         resultsDiv.innerText = 'Please enter an email or phone number to search.';
         return;
     }
     resultsDiv.innerText = 'Searching...';
+    registrationForm.style.display = 'none';
+    showRegistrationButton.style.display = 'block';
 
     try {
         const response = await getSheetValues(`${VISITORS_SHEET_NAME}!A:E`);
@@ -118,7 +185,9 @@ async function searchVisitor() {
                 return;
             }
         }
-        resultsDiv.innerText = 'No visitor found with that email or phone number.';
+        resultsDiv.innerText = 'Visitor not found. Please register below.';
+        registrationForm.style.display = 'block';
+        showRegistrationButton.style.display = 'none';
 
     } catch (err) {
         console.error('Error during search:', err);
@@ -126,12 +195,9 @@ async function searchVisitor() {
     }
 }
 
-/**
- * Generates a complex, random Visitor ID.
- * Format: V- followed by 8 random alphanumeric characters.
- * @returns {string} The new visitor ID.
- */
+
 function generateVisitorId() {
+    // ... function content remains the same ...
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = 'V-';
     for (let i = 0; i < 8; i++) {
@@ -141,6 +207,7 @@ function generateVisitorId() {
 }
 
 async function registerAndCheckIn() {
+    // ... function content remains the same, checkIn() will handle the image change ...
     if (!firstNameInput.value.trim() || !lastNameInput.value.trim() || !emailInput.value.trim()) {
         resultsDiv.innerText = 'Please fill out at least First Name, Last Name, and Email.';
         return;
@@ -149,31 +216,27 @@ async function registerAndCheckIn() {
     resultsDiv.innerText = 'Registering new visitor...';
 
     try {
-        // 1. Fetch all existing visitor IDs to ensure the new one is unique.
-        const response = await getSheetValues(`${VISITORS_SHEET_NAME}!A:A`); // Assuming ID is in column A
+        const response = await getSheetValues(`${VISITORS_SHEET_NAME}!A:A`);
         const existingIds = new Set(response.result.values ? response.result.values.flat() : []);
         
-        // 2. Generate a new ID and ensure it's unique.
         let newVisitorId;
         do {
             newVisitorId = generateVisitorId();
         } while (existingIds.has(newVisitorId));
 
-        // 3. Create the full data object for the new visitor.
         const visitorData = {
             VisitorID: newVisitorId,
             FirstName: firstNameInput.value.trim(),
             LastName: lastNameInput.value.trim(),
             Email: emailInput.value.trim(),
             Phone: phoneInput.value.trim(),
-            DateJoined: new Date().toLocaleString()
+            DateJoined: new Date().toLocaleString(),
+            Subscribed: subscribeCheckbox.checked ? 'Yes' : 'No'
         };
 
-        // 4. Prepare the row data and append it to the sheet.
         const visitorRow = await prepareRowData(VISITORS_SHEET_NAME, visitorData, VISITOR_HEADER_MAP);
         await appendSheetValues(VISITORS_SHEET_NAME, [visitorRow]);
         
-        // 5. Proceed to check-in the new visitor.
         await checkIn(visitorData);
 
     } catch (err) {
@@ -196,11 +259,20 @@ async function checkIn(visitorData) {
         await appendSheetValues(CHECKINS_SHEET_NAME, [checkinRow]);
 
         resultsDiv.innerText = `Successfully checked in ${visitorData.FirstName} ${visitorData.LastName}!`;
+        
+        // --- CHANGE TRIGGER ---
+        // Rotate the background image after a successful check-in.
+        rotateBackgroundImage();
+
+        // Clear all inputs and reset the UI to its initial state
         firstNameInput.value = '';
         lastNameInput.value = '';
         emailInput.value = '';
         phoneInput.value = '';
         searchBox.value = '';
+        subscribeCheckbox.checked = false;
+        registrationForm.style.display = 'none';
+        showRegistrationButton.style.display = 'block';
 
     } catch (err) {
         console.error('Error during check-in:', err);

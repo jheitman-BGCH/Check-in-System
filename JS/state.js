@@ -35,6 +35,11 @@ export const VISITOR_HEADER_MAP = [
     {
         key: 'DateJoined',
         aliases: ['Date Joined', 'Joined', 'DateJoined']
+    },
+    // Added a new mapping for the mailing list subscription field
+    {
+        key: 'Subscribed',
+        aliases: ['Subscribed', 'Mailing List', 'Subscribe']
     }
 ];
 

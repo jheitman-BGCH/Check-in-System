@@ -1,11 +1,16 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f0f2f5;
+    /* Removed background-color to allow for image */
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
     margin: 0;
+    /* Added styles for the rotating background image */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: background-image 1.5s ease-in-out; /* Smooth transition for image changes */
 }
 
 #app-container {
@@ -78,7 +83,7 @@ button {
     font-weight: 500;
     transition: background-color 0.2s, transform 0.1s;
     width: 100%;
-    margin-top: 10px;
+    margin-top: 15px; /* Unified margin */
 }
 
 button:hover {
@@ -99,6 +104,30 @@ button:active {
     background-color: #218838;
 }
 
+/* Style for the new "Register Here" button */
+#show-registration-button {
+    background-color: #6c757d;
+}
+
+#show-registration-button:hover {
+    background-color: #5a6268;
+}
+
+/* Style for the mailing list checkbox container */
+.subscribe-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin: 15px 0;
+    color: #555;
+    font-size: 0.9em;
+}
+
+input[type="checkbox"] {
+    transform: scale(1.2); /* Makes the checkbox slightly larger */
+    accent-color: #007bff;
+}
 
 #staff-login-section p {
     margin-bottom: 20px;

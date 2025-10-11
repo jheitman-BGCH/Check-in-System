@@ -20,17 +20,28 @@
             <h2>Visitor Check-in</h2>
             <input type="text" id="search-box" placeholder="Enter Email or Phone Number...">
             <button id="search-button">Search</button>
-            <hr>
             <div id="results"></div>
             
-            <h3>New Visitor? Register Here:</h3>
-            <div class="name-inputs">
-                <input type="text" id="firstname-input" placeholder="First Name">
-                <input type="text" id="lastname-input" placeholder="Last Name">
+            <!-- Button to manually show the registration form -->
+            <button id="show-registration-button">New Visitor? Register Here</button>
+
+            <!-- Registration form is now wrapped in a div and hidden by default -->
+            <div id="registration-form" style="display:none;">
+                <hr>
+                <h3>New Visitor Registration</h3>
+                <div class="name-inputs">
+                    <input type="text" id="firstname-input" placeholder="First Name">
+                    <input type="text" id="lastname-input" placeholder="Last Name">
+                </div>
+                <input type="email" id="email-input" placeholder="Email Address">
+                <input type="tel" id="phone-input" placeholder="Phone Number">
+                <!-- Added mailing list subscription checkbox -->
+                <div class="subscribe-container">
+                     <input type="checkbox" id="subscribe-checkbox" name="subscribe">
+                     <label for="subscribe-checkbox">Subscribe to our mailing list?</label>
+                </div>
+                <button id="register-button">Register & Check-in</button>
             </div>
-            <input type="email" id="email-input" placeholder="Email Address">
-            <input type="tel" id="phone-input" placeholder="Phone Number">
-            <button id="register-button">Register & Check-in</button>
         </div>
 
     </div>
@@ -54,4 +65,3 @@
 
 </body>
 </html>
-
