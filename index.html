@@ -110,15 +110,20 @@
         function onGoogleScriptsLoad() {
             scriptsLoaded++;
             if (scriptsLoaded === 2) {
-                // Both scripts are loaded, so we can now signal the main app module.
-                window.dispatchEvent(new Event('google-scripts-ready'));
+                // Both scripts are loaded, so we can now call the main app initializer directly.
+                // This avoids a race condition by ensuring the function exists before it's called.
+                if (window.initializeApp) {
+                    window.initializeApp();
+                } else {
+                    console.error("Initialization function not found. The main script may have failed to load.");
+                }
             }
         }
     </script>
     <script async defer src="https://apis.google.com/js/api.js" onload="onGoogleScriptsLoad()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="onGoogleScriptsLoad()"></script>
     
-    <!-- The main script is loaded as a module and will listen for the event above -->
+    <!-- The main script is loaded as a module and will expose the initializeApp function -->
     <script type="module" src="JS/script.js"></script>
 
 </body>

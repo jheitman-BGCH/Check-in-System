@@ -44,9 +44,9 @@ let countdownTimeout = null;
 let countdownInterval = null;
 
 // --- GAPI/GIS INITIALIZATION ---
-// DEBUG: Log when the event listener is attached
-console.log("DEBUG: Attaching 'google-scripts-ready' event listener.");
-window.addEventListener('google-scripts-ready', initializeApp);
+// Expose the initializeApp function to the global scope so it can be called by the inline script in index.html
+// This avoids a race condition where the 'google-scripts-ready' event might fire before this script has loaded.
+window.initializeApp = initializeApp;
 
 /**
  * Fetches the list of background images from the specified GitHub repository folder.
@@ -519,3 +519,4 @@ async function checkIn(visitorData) {
         resultsDiv.innerText = `Check-in Error: ${err.result?.error?.message || err.message}`;
     }
 }
+
