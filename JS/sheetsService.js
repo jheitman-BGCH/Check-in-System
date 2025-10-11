@@ -130,4 +130,3 @@ export async function prepareRowData(sheetName, dataObject, headerMap) {
 
     return rowData;
 }
-

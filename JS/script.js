@@ -1,6 +1,6 @@
-import { CLIENT_ID, DISCOVERY_DOC, SCOPES } from './JS/authConfig.js';
-import { SHEET_NAME, VISITOR_HEADER_MAP } from './JS/state.js';
-import { getSheetValues, appendSheetValues, prepareRowData } from './JS/sheetsService.js';
+import { CLIENT_ID, DISCOVERY_DOC, SCOPES } from './authConfig.js';
+import { SHEET_NAME, VISITOR_HEADER_MAP } from './state.js';
+import { getSheetValues, appendSheetValues, prepareRowData } from './sheetsService.js';
 
 // --- DOM ELEMENTS ---
 const authorizeButton = document.getElementById('authorize_button');
@@ -200,4 +200,3 @@ async function appendVisitorData(dataObject) {
         resultsDiv.innerText = `Error checking in: ${errorMessage}`;
     }
 }
-
