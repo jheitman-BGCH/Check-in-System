@@ -17,6 +17,7 @@ const IMAGE_FOLDER = 'bgimg'; // The folder in your repo containing the backgrou
 const authorizeButton = document.getElementById('authorize_button');
 const staffLoginSection = document.getElementById('staff-login-section');
 const visitorSection = document.getElementById('visitor-section');
+const searchContainer = document.getElementById('search-container');
 const searchButton = document.getElementById('search-button');
 const registerButton = document.getElementById('register-button');
 const resultsDiv = document.getElementById('results');
@@ -28,12 +29,23 @@ const searchBox = document.getElementById('search-box');
 const showRegistrationButton = document.getElementById('show-registration-button');
 const registrationForm = document.getElementById('registration-form');
 const subscribeCheckbox = document.getElementById('subscribe-checkbox');
+const backToSearchButton = document.getElementById('back-to-search-button');
+const inactivityModal = document.getElementById('inactivity-modal');
+const countdownTimerSpan = document.getElementById('countdown-timer');
+const stayButton = document.getElementById('stay-button');
 
 
 let tokenClient;
 let tokenRefreshTimeout = null; // To hold the token refresh timeout
 
+// --- INACTIVITY TIMER STATE ---
+let inactivityTimeout = null;
+let countdownTimeout = null;
+let countdownInterval = null;
+
 // --- GAPI/GIS INITIALIZATION ---
+// DEBUG: Log when the event listener is attached
+console.log("DEBUG: Attaching 'google-scripts-ready' event listener.");
 window.addEventListener('google-scripts-ready', initializeApp);
 
 /**
@@ -87,19 +99,32 @@ function rotateBackgroundImage() {
  * Initializes the Google API client and token client, then attempts a silent login.
  */
 function initializeApp() {
+    // DEBUG: Log when initializeApp is called
+    console.log("DEBUG: 'google-scripts-ready' event fired. Running initializeApp().");
+    
     // Fetch the list of images from GitHub when the app starts.
     fetchBackgroundImages();
 
+    // DEBUG: Log before gapi.load
+    console.log("DEBUG: Calling gapi.load('client')...");
     gapi.load('client', async () => {
+        // DEBUG: Log inside gapi.load callback
+        console.log("DEBUG: gapi.client loaded. Initializing client...");
         await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
+        // DEBUG: Log after gapi.client.init
+        console.log("DEBUG: gapi.client initialized.");
         
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: CLIENT_ID,
             scope: SCOPES,
             callback: '', // Will be defined dynamically
         });
+        // DEBUG: Log after tokenClient init
+        console.log("DEBUG: tokenClient initialized.");
         
         // Try to sign in silently when the app loads
+        // DEBUG: Log before silent login attempt
+        console.log("DEBUG: Attempting silent login sequence...");
         trySilentLogin();
     });
 }
@@ -144,11 +169,16 @@ function onLoginSuccess() {
     // Attach main event listeners.
     searchButton.onclick = searchVisitor;
     registerButton.onclick = registerAndCheckIn;
-    showRegistrationButton.onclick = () => {
-        registrationForm.style.display = 'block';
-        showRegistrationButton.style.display = 'none';
-    };
-    // Note: The periodic check (setInterval) has been removed.
+    showRegistrationButton.onclick = showRegistrationUI;
+    backToSearchButton.onclick = showSearchUI;
+
+    // Event listeners for resetting inactivity timer on form interaction
+    const registrationInputs = [firstNameInput, lastNameInput, emailInput, phoneInput, subscribeCheckbox];
+    registrationInputs.forEach(input => {
+        input.addEventListener('input', resetInactivityTimer);
+        input.addEventListener('click', resetInactivityTimer); // For checkbox
+    });
+    stayButton.onclick = hideInactivityModal;
 }
 
 /**
@@ -244,10 +274,94 @@ function refreshToken() {
 authorizeButton.onclick = handleAuthClick;
 
 
+// --- UI STATE MANAGEMENT & INACTIVITY TIMER ---
+
+/**
+ * Resets the UI to the initial search view.
+ */
+function showSearchUI() {
+    searchContainer.style.display = 'block';
+    showRegistrationButton.style.display = 'block';
+    registrationForm.style.display = 'none';
+    inactivityModal.style.display = 'none';
+
+    clearTimeout(inactivityTimeout);
+    clearTimeout(countdownTimeout);
+    clearInterval(countdownInterval);
+
+    searchBox.value = '';
+    resultsDiv.innerHTML = '';
+    firstNameInput.value = '';
+    lastNameInput.value = '';
+    emailInput.value = '';
+    phoneInput.value = '';
+    subscribeCheckbox.checked = false;
+}
+
+/**
+ * Switches the UI to the new visitor registration view.
+ */
+function showRegistrationUI() {
+    searchContainer.style.display = 'none';
+    showRegistrationButton.style.display = 'none';
+    resultsDiv.innerHTML = '';
+    registrationForm.style.display = 'block';
+    startInactivityTimer();
+}
+
+/**
+ * Starts the main 60-second inactivity timer.
+ */
+function startInactivityTimer() {
+    clearTimeout(inactivityTimeout);
+    inactivityTimeout = setTimeout(showInactivityModal, 60 * 1000); // 60 seconds
+    console.log("Inactivity timer started (60s).");
+}
+
+/**
+ * Resets the 60-second timer. Called on user interaction.
+ */
+function resetInactivityTimer() {
+    startInactivityTimer();
+}
+
+/**
+ * Shows the "Are you still there?" modal and starts the 10-second countdown.
+ */
+function showInactivityModal() {
+    inactivityModal.style.display = 'flex';
+    let secondsLeft = 10;
+    countdownTimerSpan.textContent = secondsLeft;
+
+    countdownInterval = setInterval(() => {
+        secondsLeft--;
+        countdownTimerSpan.textContent = secondsLeft;
+        if (secondsLeft <= 0) {
+            clearInterval(countdownInterval);
+        }
+    }, 1000);
+
+    countdownTimeout = setTimeout(() => {
+        console.log("Inactivity timeout reached. Returning to search screen.");
+        showSearchUI(); 
+    }, 10 * 1000); // 10 seconds
+}
+
+/**
+ * Hides the modal and resets the main inactivity timer.
+ */
+function hideInactivityModal() {
+    inactivityModal.style.display = 'none';
+    clearTimeout(countdownTimeout);
+    clearInterval(countdownInterval);
+    resetInactivityTimer();
+    console.log("User confirmed presence. Inactivity timer reset.");
+}
+
+
 // --- SPREADSHEET LOGIC ---
 
 async function searchVisitor() {
-    // ... function content remains the same ...
     const searchTerm = searchBox.value.trim();
     if (!searchTerm) {
         resultsDiv.innerText = 'Please enter an email or phone number to search.';
@@ -301,8 +415,8 @@ async function searchVisitor() {
             }
         }
         resultsDiv.innerText = 'Visitor not found. Please register below.';
-        registrationForm.style.display = 'block';
-        showRegistrationButton.style.display = 'none';
+        // Use the helper function to switch views
+        showRegistrationUI();
 
     } catch (err) {
         console.error('Error during search:', err);
@@ -312,7 +426,6 @@ async function searchVisitor() {
 
 
 function generateVisitorId() {
-    // ... function content remains the same ...
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = 'V-';
     for (let i = 0; i < 8; i++) {
@@ -322,13 +435,13 @@ function generateVisitorId() {
 }
 
 async function registerAndCheckIn() {
-    // ... function content remains the same, checkIn() will handle the image change ...
     if (!firstNameInput.value.trim() || !lastNameInput.value.trim() || !emailInput.value.trim()) {
         resultsDiv.innerText = 'Please fill out at least First Name, Last Name, and Email.';
         return;
     }
 
     resultsDiv.innerText = 'Registering new visitor...';
+    clearTimeout(inactivityTimeout); // Stop timer during processing
 
     try {
         const response = await getSheetValues(`${VISITORS_SHEET_NAME}!A:A`);
@@ -358,11 +471,17 @@ async function registerAndCheckIn() {
         console.error('Error during registration:', err);
         const errorMessage = err.result?.error?.message || err.message || 'An unknown error occurred.';
         resultsDiv.innerText = `Registration Error: ${errorMessage}`;
+        resetInactivityTimer(); // Restart timer on failure
     }
 }
 
 async function checkIn(visitorData) {
     resultsDiv.innerText = `Checking in ${visitorData.FirstName}...`;
+    // Stop all timers on successful interaction
+    clearTimeout(inactivityTimeout);
+    clearTimeout(countdownTimeout);
+    clearInterval(countdownInterval);
+
     try {
         const checkinDataObject = {
             Timestamp: new Date().toLocaleString(),
@@ -375,23 +494,13 @@ async function checkIn(visitorData) {
 
         resultsDiv.innerText = `Successfully checked in ${visitorData.FirstName} ${visitorData.LastName}!`;
         
-        // --- CHANGE TRIGGER ---
-        // Rotate the background image after a successful check-in.
         rotateBackgroundImage();
 
-        // Clear all inputs and reset the UI to its initial state
-        firstNameInput.value = '';
-        lastNameInput.value = '';
-        emailInput.value = '';
-        phoneInput.value = '';
-        searchBox.value = '';
-        subscribeCheckbox.checked = false;
-        registrationForm.style.display = 'none';
-        showRegistrationButton.style.display = 'block';
+        // Use the helper function to reset UI after a delay to show the message
+        setTimeout(showSearchUI, 2000);
 
     } catch (err) {
         console.error('Error during check-in:', err);
         resultsDiv.innerText = `Check-in Error: ${err.result?.error?.message || err.message}`;
     }
 }
-

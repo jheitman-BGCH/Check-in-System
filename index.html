@@ -61,8 +61,13 @@
 
         <div id="visitor-section" style="display:none;">
             <h2>Visitor Check-in</h2>
-            <input type="text" id="search-box" placeholder="Enter Email or Phone Number...">
-            <button id="search-button">Search</button>
+
+            <!-- Wrapper for search elements to easily hide/show them -->
+            <div id="search-container">
+                <input type="text" id="search-box" placeholder="Enter Email or Phone Number...">
+                <button id="search-button">Search</button>
+            </div>
+
             <div id="results"></div>
             
             <!-- Button to manually show the registration form -->
@@ -84,9 +89,20 @@
                      <label for="subscribe-checkbox">Subscribe to our mailing list?</label>
                 </div>
                 <button id="register-button">Register & Check-in</button>
+                <!-- Added button to allow users to go back -->
+                <button id="back-to-search-button" class="secondary-button">Back to Search</button>
             </div>
         </div>
 
+    </div>
+
+    <!-- Inactivity Modal -->
+    <div id="inactivity-modal" style="display:none;">
+        <div class="modal-content">
+            <p>Are you still there?</p>
+            <p>Returning to the main screen in <span id="countdown-timer">10</span> seconds...</p>
+            <button id="stay-button">I'm still here</button>
+        </div>
     </div>
 
     <!-- This inline script safely handles the loading of the Google APIs -->
@@ -108,4 +124,3 @@
 
 </body>
 </html>
-

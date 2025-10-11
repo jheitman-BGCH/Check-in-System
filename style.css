@@ -119,12 +119,12 @@ button:active {
     background-color: #e4a60b; /* Darker gold on hover */
 }
 
-/* Style for the new "Register Here" button */
-#show-registration-button {
+/* Style for the new "Register Here" button and other secondary actions */
+#show-registration-button, .secondary-button {
     background-color: #6c757d;
 }
 
-#show-registration-button:hover {
+#show-registration-button:hover, .secondary-button:hover {
     background-color: #5a6268;
 }
 
@@ -184,3 +184,37 @@ hr {
     background-color: #0056b3; /* Darker blue on hover */
 }
 
+/* Styles for the Inactivity Modal */
+#inactivity-modal {
+    position: fixed; /* Sits on top of everything */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent black overlay */
+    z-index: 1000; /* Ensures it's on top */
+    /* Use display:flex and not none for the JS to toggle */
+    display: none; 
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px 40px;
+    border-radius: 12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+    text-align: center;
+    border-top: 5px solid #FDB813;
+}
+
+.modal-content p {
+    margin: 0 0 15px 0;
+    font-size: 1.2em;
+    color: #333;
+}
+
+.modal-content #stay-button {
+    width: auto;
+    padding: 10px 30px;
+}
