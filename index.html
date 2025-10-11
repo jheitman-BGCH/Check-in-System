@@ -24,7 +24,10 @@
             <div id="results"></div>
             
             <h3>New Visitor? Register Here:</h3>
-            <input type="text" id="name-input" placeholder="Full Name">
+            <div class="name-inputs">
+                <input type="text" id="firstname-input" placeholder="First Name">
+                <input type="text" id="lastname-input" placeholder="Last Name">
+            </div>
             <input type="email" id="email-input" placeholder="Email Address">
             <input type="tel" id="phone-input" placeholder="Phone Number">
             <button id="register-button">Register & Check-in</button>
@@ -34,7 +37,9 @@
 
     <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-    <script src="script.js"></script>
+    <!-- The main script is now loaded as a module -->
+    <script type="module" src="script.js"></script>
 
 </body>
 </html>
+

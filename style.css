@@ -1,6 +1,6 @@
 body {
-    font-family: sans-serif;
-    background-color: #f4f4f4;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f0f2f5;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -10,44 +10,131 @@ body {
 
 #app-container {
     background: white;
-    padding: 2em;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    padding: 2em 3em;
+    border-radius: 12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.08);
     width: 90%;
     max-width: 500px;
     text-align: center;
+    border: 1px solid #e0e0e0;
 }
 
 h1, h2, h3 {
     color: #005a9c; /* BGCH Blue */
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 1.8em;
+    margin-bottom: 0.5em;
+}
+
+h2 {
+    font-size: 1.5em;
+    margin-top: 1em;
+}
+
+h3 {
+    font-size: 1.2em;
+    margin-top: 1.5em;
+    border-top: 1px solid #eee;
+    padding-top: 1em;
 }
 
 input[type="text"], input[type="email"], input[type="tel"] {
-    width: calc(100% - 20px);
-    padding: 10px;
-    margin: 10px 0;
+    width: 100%;
+    box-sizing: border-box; /* Important for padding and width */
+    padding: 12px 15px;
+    margin: 8px 0;
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-radius: 8px;
+    font-size: 1em;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input[type="text"]:focus, input[type="email"]:focus, input[type="tel"]:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    outline: none;
+}
+
+.name-inputs {
+    display: flex;
+    gap: 15px;
+}
+
+.name-inputs input {
+    width: 100%; /* The flex container will handle sizing */
 }
 
 button {
     background-color: #007bff;
     color: white;
-    padding: 10px 20px;
+    padding: 12px 25px;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 1em;
+    font-weight: 500;
+    transition: background-color 0.2s, transform 0.1s;
+    width: 100%;
+    margin-top: 10px;
 }
 
 button:hover {
     background-color: #0056b3;
 }
 
+button:active {
+    transform: scale(0.98);
+}
+
+#authorize_button {
+    width: auto;
+    padding: 12px 30px;
+    background-color: #28a745;
+}
+
+#authorize_button:hover {
+    background-color: #218838;
+}
+
+
 #staff-login-section p {
     margin-bottom: 20px;
+    font-size: 1.1em;
+    color: #555;
 }
 
 hr {
-    margin: 20px 0;
+    border: none;
+    height: 1px;
+    background-color: #e0e0e0;
+    margin: 25px 0;
+}
+
+#results {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 8px;
+    min-height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#results p {
+    margin: 0;
+    font-weight: 500;
+}
+
+#results button {
+    width: auto;
+    background-color: #17a2b8;
+}
+
+#results button:hover {
+    background-color: #138496;
 }
