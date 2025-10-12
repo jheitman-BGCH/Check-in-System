@@ -88,6 +88,7 @@ async function fetchBackgroundImages() {
 
 /**
  * Sets a new, random background image from the fetched list.
+ * This version includes a fix to properly escape characters in the URL for CSS.
  */
 function rotateBackgroundImage() {
     console.log("DEBUG: BG: rotateBackgroundImage() called.");
@@ -98,13 +99,17 @@ function rotateBackgroundImage() {
 
     // Select a random image from the array.
     const randomIndex = Math.floor(Math.random() * backgroundImageUrls.length);
-    const imageUrl = backgroundImageUrls[randomIndex];
+    let imageUrl = backgroundImageUrls[randomIndex];
     console.log(`DEBUG: BG: Selected image URL: ${imageUrl}`);
     
+    // FIX: Escape single quotes and other problematic characters for CSS.
+    // This prevents a URL containing an apostrophe from breaking the `url('')` syntax.
+    const escapedImageUrl = imageUrl.replace(/'/g, "\\'").replace(/"/g, '\\"');
+
     // Apply a blue gradient overlay with adjusted opacity and the new image.
     const styleString = `
         linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)),
-        url('${imageUrl}')
+        url('${escapedImageUrl}')
     `;
     document.body.style.backgroundImage = styleString;
     console.log("DEBUG: BG: Applied new background image and gradient to body.");
@@ -519,4 +524,3 @@ async function checkIn(visitorData) {
         resultsDiv.innerText = `Check-in Error: ${err.result?.error?.message || err.message}`;
     }
 }
-

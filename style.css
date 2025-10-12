@@ -10,6 +10,7 @@ body {
     box-sizing: border-box; /* Ensures padding is included in the total size */
     
     /* Styles for the rotating background image */
+    background-color: #005a9c; /* BGCH Blue fallback color */
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
