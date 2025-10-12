@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BGCH Check-in</title>
     <link rel="stylesheet" href="style.css">
+    <!-- FIX: Added a simple SVG favicon to prevent the 404 error in the console. -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%230281c6%22></rect></svg>">
 </head>
 <body>
 
@@ -104,19 +106,23 @@
         </div>
     </div>
 
-    <!-- This inline script safely handles the loading of the Google APIs -->
+    <!-- 
+      FIX: This inline script has been updated to robustly handle the race condition
+      between the Google API scripts loading and our main `script.js` module loading.
+    -->
     <script>
         let scriptsLoaded = 0;
         function onGoogleScriptsLoad() {
             scriptsLoaded++;
             if (scriptsLoaded === 2) {
-                // Both scripts are loaded, so we can now call the main app initializer directly.
-                // This avoids a race condition by ensuring the function exists before it's called.
-                if (window.initializeApp) {
-                    window.initializeApp();
-                } else {
-                    console.error("Initialization function not found. The main script may have failed to load.");
-                }
+                // Both Google scripts have loaded. Now, we'll poll every 100ms
+                // until our main application's initializeApp function is available on the window.
+                const interval = setInterval(() => {
+                    if (window.initializeApp) {
+                        clearInterval(interval); // Stop polling
+                        window.initializeApp();  // Initialize the app
+                    }
+                }, 100);
             }
         }
     </script>
@@ -128,4 +134,3 @@
 
 </body>
 </html>
-
