@@ -190,15 +190,34 @@ hr {
     font-weight: 500;
 }
 
+/* PATCH: Added styles for the result buttons */
+#results .result-button {
+    width: auto; /* Allow button to size to content */
+    max-width: 100%;
+    background-color: #f8f9fa;
+    color: #333;
+    border: 1px solid #dee2e6;
+    padding: 10px 20px;
+    margin-top: 0; /* Remove top margin for list items */
+}
+
+#results .result-button:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
 /* Check-in button inside results is a primary action button */
 #results button {
     width: auto;
     background-color: #007bff; /* Primary action blue */
+    color: white;
+    border: none;
 }
 
 #results button:hover {
     background-color: #0056b3; /* Darker blue on hover */
 }
+
 
 /* Styles for the Inactivity Modal */
 #inactivity-modal {

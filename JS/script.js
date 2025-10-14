@@ -97,6 +97,35 @@ function numberToColumnLetter(columnNumber) {
     return columnName;
 }
 
+/**
+ * PATCH: Calculates the Levenshtein distance between two strings for fuzzy matching.
+ * @param {string} a The first string.
+ * @param {string} b The second string.
+ * @returns {number} The edit distance between the two strings.
+ */
+function levenshteinDistance(a, b) {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+    }
+    for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+    }
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            const cost = a.charAt(j - 1) === b.charAt(i - 1) ? 0 : 1;
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j - 1] + cost, // substitution
+                matrix[i][j - 1] + 1,       // insertion
+                matrix[i - 1][j] + 1        // deletion
+            );
+        }
+    }
+    return matrix[b.length][a.length];
+}
+
 
 // --- AUTHENTICATION ---
 
@@ -256,6 +285,7 @@ function showKioskUI() {
     searchContainer.style.display = 'block';
     registrationForm.style.display = 'none';
     updateGuestInfoSection.style.display = 'none';
+    resultsDiv.style.display = 'block'; // Make sure results are visible
 
     kioskTitle.textContent = selectedEvent ? `${selectedEvent.EventName} Check-in` : 'General Visitor Check-in';
     showRegistrationButton.style.display = (selectedEvent && selectedEvent.AllowWalkins && selectedEvent.AllowWalkins.toLowerCase() === 'yes') ? 'block' : 'none';
@@ -265,6 +295,11 @@ function showKioskUI() {
     
     // Wire up buttons for the current context
     searchButton.onclick = searchGuest;
+    searchBox.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            searchGuest();
+        }
+    });
     showRegistrationButton.onclick = showRegistrationUI;
     backToSearchButton.onclick = showKioskUI; // This now goes back to the search within the current event/mode
     
@@ -395,36 +430,32 @@ async function fetchActiveEvents() {
     }
 }
 
+/**
+ * PATCH: This function has been completely rewritten to support fuzzy name search
+ * and display multiple results for user selection.
+ */
 async function searchGuest() {
-    const searchTerm = searchBox.value.trim().toLowerCase();
-    if (!searchTerm) {
-        resultsDiv.innerText = 'Please enter an email or phone number.';
+    const rawSearchTerm = searchBox.value.trim().toLowerCase();
+    if (!rawSearchTerm) {
+        resultsDiv.innerHTML = '<p>Please enter a name, email, or phone number.</p>';
         return;
     }
-    resultsDiv.innerText = 'Searching...';
-    console.log(`DEBUG: Searching for '${searchTerm}' in mode '${currentMode}'.`);
+    resultsDiv.innerHTML = '<p>Searching...</p>';
+    showRegistrationButton.style.display = 'none'; // Hide until search is complete
 
-    // Determine which sheet and logic to use based on mode
     const sheetToSearch = (currentMode === 'event' && selectedEvent) ? selectedEvent.GuestListSheetName : VISITORS_SHEET_NAME;
-    console.log(`DEBUG: Determined sheet to search: '${sheetToSearch}'.`);
 
     if (!sheetToSearch) {
-        console.error("DEBUG: searchGuest failed because sheetToSearch is undefined. selectedEvent:", selectedEvent);
-        resultsDiv.innerText = 'Error: Event sheet name is missing. Cannot perform search.';
+        resultsDiv.innerHTML = '<p>Error: Event sheet name is missing. Cannot perform search.</p>';
         return;
     }
 
     try {
         const response = await getSheetValues(`${sheetToSearch}!A:E`);
-        console.log(`DEBUG: Raw response from getSheetValues for sheet '${sheetToSearch}':`, response);
         const rows = response.result.values;
-        console.log(`DEBUG: Extracted rows for sheet '${sheetToSearch}':`, rows);
         
         if (!rows || rows.length <= 1) {
-            resultsDiv.innerText = 'No guests found.';
-            if (currentMode === 'event' && selectedEvent.AllowWalkins.toLowerCase() === 'yes') {
-                showRegistrationButton.style.display = 'block';
-            }
+            displayNoResults();
             return;
         }
         
@@ -436,52 +467,113 @@ async function searchGuest() {
         const checkinTimeIndex = headers.findIndex(h => h.includes('check-in') || h.includes('checked in'));
         const visitorIdIndex = (currentMode === 'general') ? headers.findIndex(h => h.includes('id')) : -1;
 
+        const matches = [];
+        const cleanedSearchTerm = rawSearchTerm.replace(/\s+/g, ''); // Remove spaces for better matching
+
         for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
+            const firstName = (row[firstNameIndex] || '').trim();
+            const lastName = (row[lastNameIndex] || '').trim();
             const email = (row[emailIndex] || '').trim().toLowerCase();
-            const phone = (row[phoneIndex] || '').trim();
+            const phone = (row[phoneIndex] || '').trim().replace(/[^\d]/g, ''); // Keep only digits for phone
+            const fullName = `${firstName} ${lastName}`.trim().toLowerCase();
+            
+            // Fuzzy matching logic
+            const nameDistance = levenshteinDistance(rawSearchTerm, fullName);
+            const emailDistance = levenshteinDistance(rawSearchTerm, email);
+            
+            // Check for match:
+            // 1. Exact match on cleaned phone or email.
+            // 2. Full name is very close to the search term (Levenshtein distance <= 2).
+            // 3. A part of the name is very close (e.g., searching "john" for "john doe").
+            const isMatch = (phone && phone.includes(cleanedSearchTerm)) ||
+                            (email && email === rawSearchTerm) ||
+                            (nameDistance <= 2) ||
+                            (fullName.includes(rawSearchTerm));
 
-            if (email === searchTerm || phone === searchTerm) {
-                if (row[checkinTimeIndex]) {
-                    resultsDiv.innerText = `${row[firstNameIndex]} ${row[lastNameIndex]} has already checked in.`;
-                    return;
-                }
-
-                const guestData = {
-                    rowIndex: i + 1, // Store the 1-based row index for updates
-                    FirstName: row[firstNameIndex] || '',
-                    LastName: row[lastNameIndex] || '',
+            if (isMatch) {
+                matches.push({
+                    rowIndex: i + 1,
+                    FirstName: firstName,
+                    LastName: lastName,
                     Email: email,
-                    Phone: phone
-                };
-                
-                if (currentMode === 'general') {
-                    guestData.VisitorID = row[visitorIdIndex] || '';
-                    resultsDiv.innerHTML = `<p><strong>Visitor Found:</strong> ${guestData.FirstName} ${guestData.LastName}</p>`;
-                    const checkinButton = document.createElement('button');
-                    checkinButton.innerText = `Check-in ${guestData.FirstName}`;
-                    checkinButton.onclick = () => generalCheckIn(guestData);
-                    resultsDiv.appendChild(checkinButton);
-                } else { // Event Mode
-                    if (!guestData.Email || !guestData.Phone) {
-                        showUpdateGuestInfo(guestData);
-                    } else {
-                        resultsDiv.innerHTML = `<p><strong>Guest Found:</strong> ${guestData.FirstName} ${guestData.LastName}</p>`;
-                        const checkinButton = document.createElement('button');
-                        checkinButton.innerText = `Check-in ${guestData.FirstName}`;
-                        checkinButton.onclick = () => checkInGuestAndSync(guestData, selectedEvent);
-                        resultsDiv.appendChild(checkinButton);
-                    }
-                }
-                return;
+                    Phone: row[phoneIndex] || '',
+                    VisitorID: (currentMode === 'general' && visitorIdIndex > -1) ? row[visitorIdIndex] : null,
+                    hasCheckedIn: !!row[checkinTimeIndex]
+                });
             }
         }
-        resultsDiv.innerText = 'Visitor not found. Please register below.';
+
+        displaySearchResults(matches);
+
     } catch (err) {
         console.error('Error during search:', err);
-        resultsDiv.innerText = `Search Error: ${err.result?.error?.message || err.message}`;
+        resultsDiv.innerHTML = `<p>Search Error: ${err.result?.error?.message || err.message}</p>`;
     }
 }
+
+/**
+ * PATCH: New function to display search results. Handles multiple matches,
+ * single matches, and no matches.
+ * @param {Array<Object>} matches - An array of guest data objects that matched the search.
+ */
+function displaySearchResults(matches) {
+    resultsDiv.innerHTML = ''; // Clear "Searching..."
+    if (matches.length === 0) {
+        displayNoResults();
+        return;
+    }
+
+    if (matches.length > 1) {
+        const p = document.createElement('p');
+        p.textContent = 'We found a few people. Please select your name:';
+        resultsDiv.appendChild(p);
+    }
+    
+    matches.forEach(guestData => {
+        if (guestData.hasCheckedIn) {
+            const p = document.createElement('p');
+            p.textContent = `${guestData.FirstName} ${guestData.LastName} has already checked in.`;
+            resultsDiv.appendChild(p);
+        } else {
+            const button = document.createElement('button');
+            button.className = 'result-button';
+            button.textContent = `${guestData.FirstName} ${guestData.LastName} (${guestData.Email || guestData.Phone})`;
+            button.onclick = () => handleGuestSelection(guestData);
+            resultsDiv.appendChild(button);
+        }
+    });
+}
+
+function displayNoResults() {
+    resultsDiv.innerHTML = '<p>Visitor not found. Please register below.</p>';
+    if (selectedEvent && selectedEvent.AllowWalkins && selectedEvent.AllowWalkins.toLowerCase() === 'yes') {
+        showRegistrationButton.style.display = 'block';
+    }
+}
+
+/**
+ * PATCH: New function to handle the logic after a guest is selected from the results.
+ * @param {Object} guestData - The data for the selected guest.
+ */
+function handleGuestSelection(guestData) {
+    if (currentMode === 'general') {
+        generalCheckIn(guestData);
+    } else { // Event Mode
+        // If critical info is missing, prompt for an update.
+        if (!guestData.Email || !guestData.Phone) {
+            showUpdateGuestInfo(guestData);
+        } else {
+            // Otherwise, confirm and check-in.
+            resultsDiv.innerHTML = `<p><strong>Welcome, ${guestData.FirstName} ${guestData.LastName}!</strong></p>`;
+            const checkinButton = document.createElement('button');
+            checkinButton.innerText = `Confirm & Check-in`;
+            checkinButton.onclick = () => checkInGuestAndSync(guestData, selectedEvent);
+            resultsDiv.appendChild(checkinButton);
+        }
+    }
+}
+
 
 function handleUpdateAndCheckin() {
     const updatedGuestData = { ...currentGuestData }; // Copy original data
@@ -692,4 +784,3 @@ function rotateBackgroundImage() {
     const escapedImageUrl = imageUrl.replace(/'/g, "\\'").replace(/"/g, '\\"');
     document.body.style.backgroundImage = `linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)), url('${escapedImageUrl}')`;
 }
-
