@@ -323,21 +323,34 @@ function showModalMessage(message, duration = 3000) {
 // --- SPREADSHEET LOGIC ---
 
 async function fetchActiveEvents() {
+    console.log("DEBUG: Starting fetchActiveEvents...");
     try {
         const response = await getSheetValues(`${EVENTS_SHEET_NAME}!A:D`);
+        console.log("DEBUG: Raw response from getSheetValues:", response);
+
         const rows = response.result.values;
+        console.log("DEBUG: Extracted rows from response:", rows);
+
         if (!rows || rows.length < 2) {
+            console.log("DEBUG: No rows or insufficient rows found. Setting activeEvents to empty array.");
             activeEvents = [];
             return;
         }
         const headers = rows[0].map(h => h.trim());
-        activeEvents = rows.slice(1).map(row => {
+        console.log("DEBUG: Parsed headers:", headers);
+        
+        const allEvents = rows.slice(1).map(row => {
             const event = {};
             headers.forEach((header, index) => {
                 event[header] = row[index];
             });
             return event;
-        }).filter(event => event.Status && event.Status.toLowerCase() === 'active');
+        });
+        console.log("DEBUG: All events mapped from rows (pre-filtering):", allEvents);
+
+        activeEvents = allEvents.filter(event => event.Status && event.Status.toLowerCase() === 'active');
+        console.log("DEBUG: Filtered active events:", activeEvents);
+
     } catch (err) {
         console.error("Error fetching active events:", err);
         activeEvents = [];
@@ -352,13 +365,24 @@ async function searchGuest() {
         return;
     }
     resultsDiv.innerText = 'Searching...';
+    console.log(`DEBUG: Searching for '${searchTerm}' in mode '${currentMode}'.`);
 
     // Determine which sheet and logic to use based on mode
     const sheetToSearch = (currentMode === 'event' && selectedEvent) ? selectedEvent.SheetName : VISITORS_SHEET_NAME;
+    console.log(`DEBUG: Determined sheet to search: '${sheetToSearch}'.`);
+
+    if (!sheetToSearch) {
+        console.error("DEBUG: searchGuest failed because sheetToSearch is undefined. selectedEvent:", selectedEvent);
+        resultsDiv.innerText = 'Error: Event sheet name is missing. Cannot perform search.';
+        return;
+    }
 
     try {
         const response = await getSheetValues(`${sheetToSearch}!A:E`);
+        console.log(`DEBUG: Raw response from getSheetValues for sheet '${sheetToSearch}':`, response);
         const rows = response.result.values;
+        console.log(`DEBUG: Extracted rows for sheet '${sheetToSearch}':`, rows);
+        
         if (!rows || rows.length <= 1) {
             resultsDiv.innerText = 'No guests found.';
             if (currentMode === 'event' && selectedEvent.AllowWalkins.toLowerCase() === 'yes') {
