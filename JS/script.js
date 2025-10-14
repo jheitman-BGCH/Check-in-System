@@ -77,6 +77,27 @@ function initializeApp() {
     });
 }
 
+// --- UTILITY FUNCTIONS ---
+/**
+ * Converts a 1-based column number to its A1 notation letter equivalent.
+ * e.g., 1 -> 'A', 27 -> 'AA'.
+ * @param {number} columnNumber The 1-based column number.
+ * @returns {string} The column letter.
+ */
+function numberToColumnLetter(columnNumber) {
+    let columnName = '';
+    let dividend = columnNumber;
+    let modulo;
+
+    while (dividend > 0) {
+        modulo = (dividend - 1) % 26;
+        columnName = String.fromCharCode(65 + modulo) + columnName;
+        dividend = Math.floor((dividend - modulo) / 26);
+    }
+    return columnName;
+}
+
+
 // --- AUTHENTICATION ---
 
 function handleTokenResponse(resp) {
@@ -543,8 +564,18 @@ async function checkInGuestAndSync(guestData, eventDetails) {
             const guestRow = await prepareRowData(eventDetails.GuestListSheetName, guestData, GUEST_HEADER_MAP);
             await appendSheetValues(eventDetails.GuestListSheetName, [guestRow]);
         } else {
-            const range = `${eventDetails.GuestListSheetName}!A${guestData.rowIndex}:E${guestData.rowIndex}`;
+            // FIX: The range is now calculated dynamically to prevent write errors.
             const updatedGuestRow = await prepareRowData(eventDetails.GuestListSheetName, guestData, GUEST_HEADER_MAP);
+            
+            // Dynamically determine the end column based on the length of the data row.
+            const endColumn = numberToColumnLetter(updatedGuestRow.length);
+            if (!endColumn) {
+                // Handle case where the row is empty, though unlikely here.
+                throw new Error("Could not determine the sheet's column range because prepared data is empty.");
+            }
+            const range = `${eventDetails.GuestListSheetName}!A${guestData.rowIndex}:${endColumn}${guestData.rowIndex}`;
+            console.log(`DEBUG: Dynamically determined update range: ${range}`);
+            
             await updateSheetValues(range, [updatedGuestRow]);
         }
         
@@ -645,4 +676,3 @@ function rotateBackgroundImage() {
     const escapedImageUrl = imageUrl.replace(/'/g, "\\'").replace(/"/g, '\\"');
     document.body.style.backgroundImage = `linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)), url('${escapedImageUrl}')`;
 }
-
