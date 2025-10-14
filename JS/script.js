@@ -119,7 +119,13 @@ async function onLoginSuccess() {
     console.log("Authentication successful.");
     staffLoginSection.style.display = 'none';
     await fetchActiveEvents();
-    showModeSelection();
+    // CHANGE: If a mode was previously selected, return to it. Otherwise, show the mode selection screen.
+    if (currentMode && selectedEvent) {
+        console.log(`Returning to previous mode: ${currentMode}`);
+        showKioskUI();
+    } else {
+        showModeSelection();
+    }
 }
 
 function trySilentLogin() {
@@ -192,6 +198,18 @@ function resetToLogin() {
     clearAllTimers();
 }
 
+/**
+ * NEW: This function is called on timeout. It returns to the login screen 
+ * WITHOUT clearing the currentMode and selectedEvent state.
+ */
+function returnToLoginScreen() {
+    hideAllSections();
+    staffLoginSection.style.display = 'block';
+    authorizeButton.style.visibility = 'visible';
+    clearAllTimers();
+}
+
+
 function resetToModeSelection() {
     hideAllSections();
     modeSelectionSection.style.display = 'block';
@@ -257,6 +275,9 @@ function showKioskUI() {
     searchButton.onclick = searchGuest;
     showRegistrationButton.onclick = showRegistrationUI;
     backToSearchButton.onclick = showKioskUI; // This now goes back to the search within the current event/mode
+    
+    // CHANGE: Ensure the inactivity timer is active on this screen.
+    resetInactivityTimer();
 }
 
 function showRegistrationUI() {
@@ -321,7 +342,8 @@ function showInactivityModal() {
         if (secondsLeft <= 0) clearInterval(countdownInterval);
     }, 1000);
 
-    countdownTimeout = setTimeout(resetToModeSelection, 10 * 1000); // 10 seconds
+    // CHANGE: On timeout, return to the login screen without clearing the current mode state.
+    countdownTimeout = setTimeout(returnToLoginScreen, 10 * 1000);
 }
 
 function hideInactivityModal() {
