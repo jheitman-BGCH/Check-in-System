@@ -119,7 +119,7 @@ async function onLoginSuccess() {
     console.log("Authentication successful.");
     staffLoginSection.style.display = 'none';
     await fetchActiveEvents();
-    // CHANGE: If a mode was previously selected, return to it. Otherwise, show the mode selection screen.
+    // If a mode was previously selected, return to it. Otherwise, show the mode selection screen.
     if (currentMode && selectedEvent) {
         console.log(`Returning to previous mode: ${currentMode}`);
         showKioskUI();
@@ -172,7 +172,8 @@ function refreshToken() {
     tokenClient.callback = (resp) => {
         if (!handleTokenResponse(resp)) {
             console.error('Session lost. Please log in again.');
-            resetToLogin();
+            // CHANGE: Use returnToLoginScreen to preserve state on token failure
+            returnToLoginScreen();
         }
     };
     tokenClient.requestAccessToken({ prompt: 'none' });
@@ -199,7 +200,7 @@ function resetToLogin() {
 }
 
 /**
- * NEW: This function is called on timeout. It returns to the login screen 
+ * This function is called on timeout. It returns to the login screen 
  * WITHOUT clearing the currentMode and selectedEvent state.
  */
 function returnToLoginScreen() {
@@ -276,7 +277,7 @@ function showKioskUI() {
     showRegistrationButton.onclick = showRegistrationUI;
     backToSearchButton.onclick = showKioskUI; // This now goes back to the search within the current event/mode
     
-    // CHANGE: Ensure the inactivity timer is active on this screen.
+    // Ensure the inactivity timer is active on this screen.
     resetInactivityTimer();
 }
 
@@ -342,7 +343,7 @@ function showInactivityModal() {
         if (secondsLeft <= 0) clearInterval(countdownInterval);
     }, 1000);
 
-    // CHANGE: On timeout, return to the login screen without clearing the current mode state.
+    // On timeout, return to the login screen without clearing the current mode state.
     countdownTimeout = setTimeout(returnToLoginScreen, 10 * 1000);
 }
 
@@ -613,7 +614,8 @@ async function checkInGuestAndSync(guestData, eventDetails) {
         
         resultsDiv.innerText = `Successfully checked in ${guestData.FirstName} for ${eventDetails.EventName}!`;
         rotateBackgroundImage();
-        setTimeout(resetToModeSelection, 2500);
+        // CHANGE: Return to the Kiosk UI instead of the mode selection screen.
+        setTimeout(showKioskUI, 2500);
 
     } catch (err) {
         console.error('Error in checkInGuestAndSync:', err);
@@ -698,3 +700,4 @@ function rotateBackgroundImage() {
     const escapedImageUrl = imageUrl.replace(/'/g, "\\'").replace(/"/g, '\\"');
     document.body.style.backgroundImage = `linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)), url('${escapedImageUrl}')`;
 }
+
