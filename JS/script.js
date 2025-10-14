@@ -266,7 +266,8 @@ function showModeSelection() {
     };
     generalVisitModeButton.onclick = () => {
         currentMode = 'general';
-        selectedEvent = { EventName: 'General Visit', AllowWalkins: 'Yes' }; // Mock event for general visits
+        // FIX: Use EventTitle to align with the new data key in state.js
+        selectedEvent = { EventTitle: 'General Visit', AllowWalkins: 'Yes' };
         showKioskUI();
     };
 }
@@ -280,7 +281,8 @@ function showEventSelection() {
         activeEvents.forEach(event => {
             const button = document.createElement('button');
             button.className = 'event-button';
-            button.textContent = event.EventName;
+            // FIX: Use EventTitle to align with the new data key in state.js
+            button.textContent = event.EventTitle;
             button.onclick = () => {
                 selectedEvent = event;
                 showKioskUI();
@@ -302,7 +304,8 @@ function showKioskUI() {
     updateGuestInfoSection.style.display = 'none';
     resultsDiv.style.display = 'block'; // Make sure results are visible
 
-    kioskTitle.textContent = selectedEvent ? `${selectedEvent.EventName} Check-in` : 'General Visitor Check-in';
+    // FIX: Use EventTitle to align with the new data key in state.js
+    kioskTitle.textContent = selectedEvent ? `${selectedEvent.EventTitle} Check-in` : 'General Visitor Check-in';
     showRegistrationButton.style.display = (selectedEvent && selectedEvent.AllowWalkins && selectedEvent.AllowWalkins.toLowerCase() === 'yes') ? 'block' : 'none';
     
     resultsDiv.innerHTML = '';
@@ -428,6 +431,7 @@ async function fetchActiveEvents() {
         const allEvents = rows.slice(1).map(row => {
             const event = {};
             headers.forEach((header, index) => {
+                // FIX: Use the header as the key directly, which now includes 'EventTitle'.
                 event[header] = row[index];
             });
             return event;
@@ -685,7 +689,8 @@ async function generalCheckIn(visitorData) {
             Timestamp: new Date().toLocaleString(),
             VisitorID: visitorData.VisitorID,
             FullName: `${visitorData.FirstName} ${visitorData.LastName}`.trim(),
-            EventName: 'General Visit'
+            // FIX: Use EventTitle to align with the new data key in state.js
+            EventTitle: 'General Visit'
         };
         const checkinRow = await prepareRowData(CHECKINS_SHEET_NAME, checkinDataObject, CHECKINS_HEADER_MAP);
         await appendSheetValues(CHECKINS_SHEET_NAME, [checkinRow]);
@@ -739,12 +744,14 @@ async function checkInGuestAndSync(guestData, eventDetails) {
             Timestamp: timestamp,
             VisitorID: visitorId,
             FullName: `${guestData.FirstName} ${guestData.LastName}`.trim(),
-            EventName: eventDetails.EventName
+            // FIX: Use EventTitle to align with the new data key in state.js
+            EventTitle: eventDetails.EventTitle
         };
         const checkinRow = await prepareRowData(CHECKINS_SHEET_NAME, checkinLogData, CHECKINS_HEADER_MAP);
         await appendSheetValues(CHECKINS_SHEET_NAME, [checkinRow]);
         
-        resultsDiv.innerText = `Successfully checked in ${guestData.FirstName} for ${eventDetails.EventName}!`;
+        // FIX: Use EventTitle to align with the new data key in state.js
+        resultsDiv.innerText = `Successfully checked in ${guestData.FirstName} for ${eventDetails.EventTitle}!`;
         rotateBackgroundImage();
         // Return to the Kiosk UI instead of the mode selection screen.
         setTimeout(showKioskUI, 2500);
@@ -877,4 +884,3 @@ function rotateBackgroundImage() {
     const escapedImageUrl = imageUrl.replace(/'/g, "\\'").replace(/"/g, '\\"');
     document.body.style.backgroundImage = `linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)), url('${escapedImageUrl}')`;
 }
-

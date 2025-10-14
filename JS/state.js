@@ -60,10 +60,10 @@ export const CHECKINS_HEADER_MAP = [
         key: 'FullName', // Included for easier reading in the check-in log
         aliases: ['Name', 'Full Name', 'Visitor']
     },
-    // New: Added mapping for EventName
+    // FIX: Renamed key and updated aliases to avoid conflicts with 'FullName'.
     {
-        key: 'EventName',
-        aliases: ['Event Name', 'Event', 'EventName']
+        key: 'EventTitle',
+        aliases: ['Event Title', 'Event', 'EventTitle']
     }
 ];
 
