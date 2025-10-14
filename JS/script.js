@@ -55,6 +55,9 @@ const modalMessage = document.getElementById('modal-message');
 const modalCountdownP = document.getElementById('modal-countdown-p');
 const countdownTimerSpan = document.getElementById('countdown-timer');
 const stayButton = document.getElementById('stay-button');
+const fullscreenButton = document.getElementById('fullscreen-button');
+const fullscreenIcon = document.getElementById('fullscreen-icon');
+const exitFullscreenIcon = document.getElementById('exit-fullscreen-icon');
 
 
 // --- GAPI/GIS INITIALIZATION ---
@@ -66,6 +69,7 @@ window.initializeApp = initializeApp;
 function initializeApp() {
     console.log("DEBUG: 'google-scripts-ready' event fired. Running initializeApp().");
     fetchBackgroundImages();
+    addEventListeners();
     gapi.load('client', async () => {
         await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
         tokenClient = google.accounts.oauth2.initTokenClient({
@@ -75,6 +79,17 @@ function initializeApp() {
         });
         trySilentLogin();
     });
+}
+
+// --- EVENT LISTENERS ---
+function addEventListeners() {
+    if (fullscreenButton) {
+        fullscreenButton.addEventListener('click', toggleFullScreen);
+    }
+    document.addEventListener('fullscreenchange', updateFullscreenIcon);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenIcon);
+    document.addEventListener('mozfullscreenchange', updateFullscreenIcon);
+    document.addEventListener('MSFullscreenChange', updateFullscreenIcon);
 }
 
 // --- UTILITY FUNCTIONS ---
@@ -763,6 +778,44 @@ async function generateUniqueVisitorId() {
     return newId;
 }
 
+// --- FULLSCREEN LOGIC ---
+function toggleFullScreen() {
+    if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) {
+            document.documentElement.msRequestFullscreen();
+        } else if (document.documentElement.mozRequestFullScreen) {
+            document.documentElement.mozRequestFullScreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+            document.documentElement.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+        }
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        }
+    }
+}
+
+function isFullScreen() {
+    return !!(document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+}
+
+function updateFullscreenIcon() {
+    if (isFullScreen()) {
+        fullscreenIcon.style.display = 'none';
+        exitFullscreenIcon.style.display = 'block';
+    } else {
+        fullscreenIcon.style.display = 'block';
+        exitFullscreenIcon.style.display = 'none';
+    }
+}
 
 // --- BACKGROUND IMAGE ROTATOR ---
 async function fetchBackgroundImages() {

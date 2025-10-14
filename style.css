@@ -256,3 +256,27 @@ hr {
     width: auto;
     padding: 10px 30px;
 }
+
+/* Fullscreen Button Styles */
+#fullscreen-button {
+    position: fixed; /* Use fixed to keep it in the viewport */
+    top: 0;
+    right: 0;
+    padding: 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    z-index: 1100; /* Higher than the modal */
+    outline: none; /* remove focus outline */
+}
+
+#fullscreen-button svg {
+    width: 28px; /* A bit larger for easier clicking */
+    height: 28px;
+    stroke: white;
+    transition: transform 0.2s ease-in-out;
+}
+
+#fullscreen-button:hover svg {
+    transform: scale(1.1);
+}
