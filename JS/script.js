@@ -603,25 +603,58 @@ function handleUpdateAndCheckin() {
 }
 
 async function registerWalkIn() {
-    if (!firstNameInput.value.trim() || !lastNameInput.value.trim() || !emailInput.value.trim()) {
+    const firstName = firstNameInput.value.trim();
+    const lastName = lastNameInput.value.trim();
+    const email = emailInput.value.trim();
+    const phone = phoneInput.value.trim();
+
+    if (!firstName || !lastName || !email) {
         showModalMessage('First Name, Last Name, and Email are required.', 2500);
         return;
     }
-    
+
+    // PATCH: Before registering, check if a visitor with this email already exists in "general" mode.
+    if (currentMode === 'general') {
+        resultsDiv.innerText = 'Checking for existing visitor...';
+        try {
+            const response = await getSheetValues(`${VISITORS_SHEET_NAME}!A:E`); // Check against the main Visitors sheet
+            const rows = response.result.values;
+            if (rows && rows.length > 1) {
+                const headers = rows[0].map(h => h.toLowerCase());
+                const emailIndex = headers.indexOf('email');
+                if (emailIndex > -1) {
+                    const existingVisitor = rows.slice(1).find(row => row[emailIndex] && row[emailIndex].toLowerCase() === email.toLowerCase());
+                    if (existingVisitor) {
+                        // If the visitor exists, show a message and stop the registration.
+                        showModalMessage('A visitor with this email already exists. Please go back and search to check in.', 4000);
+                        resultsDiv.innerText = ''; // Clear the "checking..." message
+                        return; // Stop the function here.
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Error checking for existing visitor:', err);
+            resultsDiv.innerText = `Error: ${err.result?.error?.message || err.message}`;
+            startInactivityTimer();
+            return;
+        }
+    }
+
     const walkinData = {
         isWalkIn: true, // Flag to indicate a new guest
-        FirstName: firstNameInput.value.trim(),
-        LastName: lastNameInput.value.trim(),
-        Email: emailInput.value.trim(),
-        Phone: phoneInput.value.trim(),
-        // These are for the Visitors sheet sync
+        FirstName: firstName,
+        LastName: lastName,
+        Email: email,
+        Phone: phone,
         DateJoined: new Date().toLocaleString(),
         Subscribed: subscribeCheckbox.checked ? 'Yes' : 'No'
     };
     
     if(currentMode === 'general'){
+        // If we're here, it's a new visitor, so we can proceed.
         generalRegisterAndCheckIn(walkinData);
     } else {
+        // Event check-ins will handle de-duplication automatically via findOrCreateVisitor.
         checkInGuestAndSync(walkinData, selectedEvent);
     }
 }
@@ -841,4 +874,3 @@ function rotateBackgroundImage() {
     const escapedImageUrl = imageUrl.replace(/'/g, "\\'").replace(/"/g, '\\"');
     document.body.style.backgroundImage = `linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)), url('${escapedImageUrl}')`;
 }
-
