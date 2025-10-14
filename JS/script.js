@@ -336,7 +336,7 @@ async function fetchActiveEvents() {
             activeEvents = [];
             return;
         }
-        const headers = rows[0].map(h => h.trim());
+        const headers = rows[0].map(h => h.trim().replace(/\s+/g, ''));
         console.log("DEBUG: Parsed headers:", headers);
         
         const allEvents = rows.slice(1).map(row => {
@@ -348,7 +348,8 @@ async function fetchActiveEvents() {
         });
         console.log("DEBUG: All events mapped from rows (pre-filtering):", allEvents);
 
-        activeEvents = allEvents.filter(event => event.Status && event.Status.toLowerCase() === 'active');
+        // FIX: Changed 'Status' to 'IsActive' and checked for 'TRUE' to match the sheet.
+        activeEvents = allEvents.filter(event => event.IsActive && event.IsActive.toLowerCase() === 'true');
         console.log("DEBUG: Filtered active events:", activeEvents);
 
     } catch (err) {
@@ -368,7 +369,7 @@ async function searchGuest() {
     console.log(`DEBUG: Searching for '${searchTerm}' in mode '${currentMode}'.`);
 
     // Determine which sheet and logic to use based on mode
-    const sheetToSearch = (currentMode === 'event' && selectedEvent) ? selectedEvent.SheetName : VISITORS_SHEET_NAME;
+    const sheetToSearch = (currentMode === 'event' && selectedEvent) ? selectedEvent.GuestListSheetName : VISITORS_SHEET_NAME;
     console.log(`DEBUG: Determined sheet to search: '${sheetToSearch}'.`);
 
     if (!sheetToSearch) {
@@ -539,11 +540,11 @@ async function checkInGuestAndSync(guestData, eventDetails) {
         guestData.CheckinTimestamp = timestamp;
 
         if (guestData.isWalkIn) {
-            const guestRow = await prepareRowData(eventDetails.SheetName, guestData, GUEST_HEADER_MAP);
-            await appendSheetValues(eventDetails.SheetName, [guestRow]);
+            const guestRow = await prepareRowData(eventDetails.GuestListSheetName, guestData, GUEST_HEADER_MAP);
+            await appendSheetValues(eventDetails.GuestListSheetName, [guestRow]);
         } else {
-            const range = `${eventDetails.SheetName}!A${guestData.rowIndex}:E${guestData.rowIndex}`;
-            const updatedGuestRow = await prepareRowData(eventDetails.SheetName, guestData, GUEST_HEADER_MAP);
+            const range = `${eventDetails.GuestListSheetName}!A${guestData.rowIndex}:E${guestData.rowIndex}`;
+            const updatedGuestRow = await prepareRowData(eventDetails.GuestListSheetName, guestData, GUEST_HEADER_MAP);
             await updateSheetValues(range, [updatedGuestRow]);
         }
         
@@ -644,3 +645,4 @@ function rotateBackgroundImage() {
     const escapedImageUrl = imageUrl.replace(/'/g, "\\'").replace(/"/g, '\\"');
     document.body.style.backgroundImage = `linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)), url('${escapedImageUrl}')`;
 }
+
