@@ -61,11 +61,29 @@
             <button id="authorize_button" style="visibility:hidden;">Login</button>
         </div>
 
+        <!-- New: Mode Selection -->
+        <div id="mode-selection-section" style="display:none;">
+            <h2>Select Check-in Mode</h2>
+            <div class="mode-buttons-container">
+                <button id="event-checkin-mode-button" class="mode-button">Event Check-in</button>
+                <button id="general-visit-mode-button" class="mode-button">General Visit</button>
+            </div>
+        </div>
+
+        <!-- New: Event Selection -->
+        <div id="event-selection-section" style="display:none;">
+            <h2>Select an Event</h2>
+            <div id="event-list-container">
+                <!-- Event buttons will be dynamically inserted here -->
+            </div>
+            <button id="back-to-mode-selection-button" class="secondary-button">Back</button>
+        </div>
+
         <div id="visitor-section" style="display:none;">
 
             <!-- Wrapper for search elements to easily hide/show them -->
             <div id="search-container">
-                <h2>Visitor Check-in</h2>
+                <h2 id="kiosk-title">Visitor Check-in</h2>
                 <input type="text" id="search-box" placeholder="Enter Email or Phone Number...">
                 <button id="search-button">Search</button>
             </div>
@@ -93,15 +111,28 @@
                 <!-- Added button to allow users to go back -->
                 <button id="back-to-search-button" class="secondary-button">Back to Search</button>
             </div>
-        </div>
 
+            <!-- New: Update Guest Info Form -->
+            <div id="update-guest-info-section" style="display:none;">
+                <h3>Please Complete Your Information</h3>
+                <p>We need a bit more info before we can check you in.</p>
+                <div class="name-inputs">
+                    <input type="text" id="update-firstname-input" placeholder="First Name" readonly>
+                    <input type="text" id="update-lastname-input" placeholder="Last Name" readonly>
+                </div>
+                <input type="email" id="update-email-input" placeholder="Email Address (Required)">
+                <input type="tel" id="update-phone-input" placeholder="Phone Number (Required)">
+                <button id="update-and-checkin-button">Update & Check-in</button>
+                <button id="back-to-event-search-button" class="secondary-button">Back to Search</button>
+            </div>
+        </div>
     </div>
 
     <!-- Inactivity Modal -->
     <div id="inactivity-modal" style="display:none;">
         <div class="modal-content">
-            <p>Are you still there?</p>
-            <p>Returning to the main screen in <span id="countdown-timer">10</span> seconds...</p>
+            <p id="modal-message">Are you still there?</p>
+            <p id="modal-countdown-p" style="display: block;">Returning to the main screen in <span id="countdown-timer">10</span> seconds...</p>
             <button id="stay-button">I'm still here</button>
         </div>
     </div>

@@ -77,6 +77,12 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="tel"]:focus {
     outline: none;
 }
 
+/* Style for required but empty fields in the update form */
+input.missing-info {
+    border-color: #dc3545; /* Red border to highlight */
+    background-color: #fff8f8;
+}
+
 .name-inputs {
     display: flex;
     gap: 15px;
@@ -129,7 +135,16 @@ button:active {
     background-color: #5a6268;
 }
 
-/* Style for the mailing list checkbox container */
+/* Container for mode and event buttons */
+.mode-buttons-container, #event-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+
+/* Style for mailing list checkbox container */
 .subscribe-container {
     display: flex;
     justify-content: center;
@@ -145,7 +160,7 @@ input[type="checkbox"] {
     accent-color: #007bff;
 }
 
-#staff-login-section p {
+#staff-login-section p, #update-guest-info-section p {
     margin-bottom: 20px;
     font-size: 1.1em;
     color: #555;
