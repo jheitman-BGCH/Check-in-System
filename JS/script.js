@@ -780,31 +780,34 @@ async function generateUniqueVisitorId() {
 
 // --- FULLSCREEN LOGIC ---
 function toggleFullScreen() {
-    if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
-        if (document.documentElement.requestFullscreen) {
-            document.documentElement.requestFullscreen();
-        } else if (document.documentElement.msRequestFullscreen) {
-            document.documentElement.msRequestFullscreen();
-        } else if (document.documentElement.mozRequestFullScreen) {
-            document.documentElement.mozRequestFullScreen();
-        } else if (document.documentElement.webkitRequestFullscreen) {
-            document.documentElement.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+    // Check if we are currently in fullscreen
+    if (!isFullScreen()) {
+        // If not, find the correct method to request fullscreen
+        const element = document.documentElement; // Target the whole page
+        const requestMethod = element.requestFullscreen || element.webkitRequestFullscreen || element.mozRequestFullScreen || element.msRequestFullscreen;
+        
+        if (requestMethod) {
+            // Call the found method to enter fullscreen
+            requestMethod.call(element);
+        } else {
+            // Fallback for browsers that do not support the API
+            console.warn("Fullscreen API is not supported by this browser.");
+            alert("Fullscreen mode is not supported on this device.");
         }
     } else {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.msExitFullscreen) {
-            document.msExitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-            document.mozCancelFullScreen();
-        } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
+        // If we are in fullscreen, find the correct method to exit
+        const exitMethod = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+        
+        if (exitMethod) {
+            // Call the found method to exit fullscreen
+            exitMethod.call(document);
         }
     }
 }
 
 function isFullScreen() {
-    return !!(document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+    // Check for the fullscreen element using all vendor prefixes
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
 }
 
 function updateFullscreenIcon() {
@@ -816,6 +819,7 @@ function updateFullscreenIcon() {
         exitFullscreenIcon.style.display = 'none';
     }
 }
+
 
 // --- BACKGROUND IMAGE ROTATOR ---
 async function fetchBackgroundImages() {
@@ -837,3 +841,4 @@ function rotateBackgroundImage() {
     const escapedImageUrl = imageUrl.replace(/'/g, "\\'").replace(/"/g, '\\"');
     document.body.style.backgroundImage = `linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)), url('${escapedImageUrl}')`;
 }
+
