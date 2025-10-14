@@ -761,13 +761,16 @@ async function findOrCreateVisitor(guestData) {
     const response = await getSheetValues(`${VISITORS_SHEET_NAME}!A:E`);
     const rows = response.result.values;
     if (rows && rows.length > 1) {
-        const headers = rows[0].map(h => h.toLowerCase());
-        const emailIndex = headers.indexOf('email');
-        const idIndex = headers.indexOf('visitor id');
+        // FIX: Made header searching more robust to prevent duplicate visitor creation.
+        // It now finds columns if the header *includes* the term (e.g., "Email Address" will match "email").
+        const headers = rows[0].map(h => String(h || '').trim().toLowerCase());
+        const emailIndex = headers.findIndex(h => h.includes('email'));
+        const idIndex = headers.findIndex(h => h.includes('visitor id') || h.includes('visitorid'));
+
 
         if (emailIndex > -1 && idIndex > -1) {
             for (let i = 1; i < rows.length; i++) {
-                if (rows[i][emailIndex] && rows[i][emailIndex].toLowerCase() === guestData.Email.toLowerCase()) {
+                if (rows[i][emailIndex] && guestData.Email && rows[i][emailIndex].toLowerCase() === guestData.Email.toLowerCase()) {
                     console.log("Found existing visitor:", rows[i][idIndex]);
                     return rows[i][idIndex]; // Return existing VisitorID
                 }
@@ -874,3 +877,4 @@ function rotateBackgroundImage() {
     const escapedImageUrl = imageUrl.replace(/'/g, "\\'").replace(/"/g, '\\"');
     document.body.style.backgroundImage = `linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)), url('${escapedImageUrl}')`;
 }
+
