@@ -172,8 +172,8 @@ function refreshToken() {
     tokenClient.callback = (resp) => {
         if (!handleTokenResponse(resp)) {
             console.error('Session lost. Please log in again.');
-            // CHANGE: Use returnToLoginScreen to preserve state on token failure
-            returnToLoginScreen();
+            // This handles a true session loss (e.g. token revoked), requiring re-authentication.
+            resetToLogin();
         }
     };
     tokenClient.requestAccessToken({ prompt: 'none' });
@@ -193,23 +193,14 @@ function hideAllSections() {
 }
 
 function resetToLogin() {
+    // Note: This function is for a complete session loss, not the inactivity timer.
+    // It purposefully does NOT clear currentMode or selectedEvent, so a quick
+    // re-login can resume the session. A full page refresh will clear them.
     hideAllSections();
     staffLoginSection.style.display = 'block';
     authorizeButton.style.visibility = 'visible';
     clearAllTimers();
 }
-
-/**
- * This function is called on timeout. It returns to the login screen 
- * WITHOUT clearing the currentMode and selectedEvent state.
- */
-function returnToLoginScreen() {
-    hideAllSections();
-    staffLoginSection.style.display = 'block';
-    authorizeButton.style.visibility = 'visible';
-    clearAllTimers();
-}
-
 
 function resetToModeSelection() {
     hideAllSections();
@@ -343,8 +334,9 @@ function showInactivityModal() {
         if (secondsLeft <= 0) clearInterval(countdownInterval);
     }, 1000);
 
-    // On timeout, return to the login screen without clearing the current mode state.
-    countdownTimeout = setTimeout(returnToLoginScreen, 10 * 1000);
+    // CHANGE: On inactivity timeout, return to the clean kiosk screen for the
+    // currently selected mode instead of logging out.
+    countdownTimeout = setTimeout(showKioskUI, 10 * 1000);
 }
 
 function hideInactivityModal() {
@@ -614,7 +606,7 @@ async function checkInGuestAndSync(guestData, eventDetails) {
         
         resultsDiv.innerText = `Successfully checked in ${guestData.FirstName} for ${eventDetails.EventName}!`;
         rotateBackgroundImage();
-        // CHANGE: Return to the Kiosk UI instead of the mode selection screen.
+        // Return to the Kiosk UI instead of the mode selection screen.
         setTimeout(showKioskUI, 2500);
 
     } catch (err) {
