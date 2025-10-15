@@ -99,5 +99,9 @@ export const GUEST_HEADER_MAP = [
     {
         key: 'IsWalkin',
         aliases: ['Is Walk-in', 'Is Walkin', 'Walk-in', 'Walkin']
+    },
+    {
+        key: 'Subscribed',
+        aliases: ['Subscribed', 'Mailing List', 'Subscribe']
     }
 ];

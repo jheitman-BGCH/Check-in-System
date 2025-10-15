@@ -48,6 +48,8 @@ const updateFirstNameInput = document.getElementById('update-firstname-input');
 const updateLastNameInput = document.getElementById('update-lastname-input');
 const updateEmailInput = document.getElementById('update-email-input');
 const updatePhoneInput = document.getElementById('update-phone-input');
+const updateSubscribeContainer = document.getElementById('update-subscribe-container');
+const updateSubscribeCheckbox = document.getElementById('update-subscribe-checkbox');
 const updateAndCheckinButton = document.getElementById('update-and-checkin-button');
 const backToEventSearchButton = document.getElementById('back-to-event-search-button');
 const inactivityModal = document.getElementById('inactivity-modal');
@@ -350,6 +352,15 @@ function showUpdateGuestInfo(guestData) {
     updateEmailInput.classList.toggle('missing-info', !guestData.Email);
     updatePhoneInput.classList.toggle('missing-info', !guestData.Phone);
 
+    // Conditionally show the mailing list subscription prompt
+    const subscriptionStatusMissing = guestData.Subscribed === undefined || guestData.Subscribed.trim() === '';
+    if (subscriptionStatusMissing) {
+        updateSubscribeContainer.style.display = 'flex';
+        updateSubscribeCheckbox.checked = false; // Default to unchecked
+    } else {
+        updateSubscribeContainer.style.display = 'none';
+    }
+
     updateAndCheckinButton.onclick = handleUpdateAndCheckin;
     backToEventSearchButton.onclick = showKioskUI;
     startInactivityTimer();
@@ -470,7 +481,7 @@ async function searchGuest() {
     }
 
     try {
-        const response = await getSheetValues(`${sheetToSearch}!A:G`); // Read more columns for new data
+        const response = await getSheetValues(`${sheetToSearch}!A:H`); // Read more columns for new data
         const rows = response.result.values;
         
         if (!rows || rows.length <= 1) {
@@ -484,6 +495,7 @@ async function searchGuest() {
         const firstNameIndex = headers.findIndex(h => h.includes('first'));
         const lastNameIndex = headers.findIndex(h => h.includes('last'));
         const checkinTimeIndex = headers.findIndex(h => h.includes('check-in') || h.includes('checked in'));
+        const subscribedIndex = headers.findIndex(h => h.includes('subscribed'));
         
         // Use a more general 'id' search for robustness across sheets
         const guestIdIndex = headers.findIndex(h => h.includes('id'));
@@ -520,6 +532,7 @@ async function searchGuest() {
                     LastName: lastName,
                     Email: email,
                     Phone: row[phoneIndex] || '',
+                    Subscribed: (subscribedIndex > -1) ? row[subscribedIndex] : undefined,
                     GuestID: (guestIdIndex > -1) ? row[guestIdIndex] : null,
                     hasCheckedIn: !!row[checkinTimeIndex]
                 });
@@ -582,8 +595,9 @@ function handleGuestSelection(guestData) {
     if (currentMode === 'general') {
         generalCheckIn(guestData);
     } else { // Event Mode
-        // If critical info is missing, prompt for an update.
-        if (!guestData.Email || !guestData.Phone) {
+        // If critical info is missing (including subscription preference), prompt for an update.
+        const subscriptionStatusMissing = guestData.Subscribed === undefined || guestData.Subscribed.trim() === '';
+        if (!guestData.Email || !guestData.Phone || subscriptionStatusMissing) {
             showUpdateGuestInfo(guestData);
         } else {
             // Otherwise, confirm and check-in.
@@ -601,6 +615,11 @@ function handleUpdateAndCheckin() {
     const updatedGuestData = { ...currentGuestData }; // Copy original data
     updatedGuestData.Email = updateEmailInput.value.trim();
     updatedGuestData.Phone = updatePhoneInput.value.trim();
+
+    // Only add the 'Subscribed' property if the question was actually asked.
+    if (updateSubscribeContainer.style.display !== 'none') {
+        updatedGuestData.Subscribed = updateSubscribeCheckbox.checked ? 'Yes' : 'No';
+    }
 
     if (!updatedGuestData.Email) {
         showModalMessage('Email is required to check-in.');
@@ -661,7 +680,7 @@ async function registerWalkIn() {
         // If we're here, it's a new visitor, so we can proceed.
         generalRegisterAndCheckIn(walkinData);
     } else {
-        // Event check-ins will handle de-duplication automatically via findOrCreateVisitor.
+        // Event check-ins will handle de-duplication automatically via findAndUpdateOrCreateVisitor.
         checkInGuestAndSync(walkinData, selectedEvent);
     }
 }
@@ -670,7 +689,7 @@ async function generalRegisterAndCheckIn(walkinData) {
     resultsDiv.innerText = 'Registering new visitor...';
     clearAllTimers();
     try {
-        const newVisitorId = await findOrCreateVisitor(walkinData);
+        const newVisitorId = await findAndUpdateOrCreateVisitor(walkinData);
         const visitorDataForCheckin = {
             ...walkinData,
             VisitorID: newVisitorId
@@ -772,8 +791,8 @@ async function checkInGuestAndSync(guestData, eventDetails) {
     clearAllTimers();
 
     try {
-        // Step 1: Find or Create Visitor in main 'Visitors' sheet to get a consistent VisitorID.
-        const visitorId = await findOrCreateVisitor(guestData);
+        // Step 1: Find, UPDATE, or Create Visitor in main 'Visitors' sheet to get a consistent VisitorID.
+        const visitorId = await findAndUpdateOrCreateVisitor(guestData);
 
         // Step 2: Definitive check against the central 'Checkins' log to prevent duplicates for this event.
         const eventTitle = eventDetails.EventTitle;
@@ -832,30 +851,64 @@ async function checkInGuestAndSync(guestData, eventDetails) {
     }
 }
 
-
-async function findOrCreateVisitor(guestData) {
-    // Search the main Visitors sheet by email.
-    const response = await getSheetValues(`${VISITORS_SHEET_NAME}!A:E`);
+/**
+ * Finds a visitor by email. If found and new info is provided, it updates their record.
+ * If not found, it creates a new visitor record.
+ * @param {object} guestData The data of the guest to find or create.
+ * @returns {Promise<string>} The unique VisitorID for the guest.
+ */
+async function findAndUpdateOrCreateVisitor(guestData) {
+    const response = await getSheetValues(`${VISITORS_SHEET_NAME}!A:G`); // Read enough columns
     const rows = response.result.values;
+
     if (rows && rows.length > 1) {
-        // FIX: Made header searching more robust to prevent duplicate visitor creation.
-        // It now finds columns if the header *includes* the term (e.g., "Email Address" will match "email").
         const headers = rows[0].map(h => String(h || '').trim().toLowerCase());
         const emailIndex = headers.findIndex(h => h.includes('email'));
         const idIndex = headers.findIndex(h => h.includes('visitor id') || h.includes('visitorid'));
 
-
         if (emailIndex > -1 && idIndex > -1) {
             for (let i = 1; i < rows.length; i++) {
-                if (rows[i][emailIndex] && guestData.Email && rows[i][emailIndex].toLowerCase() === guestData.Email.toLowerCase()) {
-                    console.log("Found existing visitor:", rows[i][idIndex]);
-                    return rows[i][idIndex]; // Return existing VisitorID
+                const row = rows[i];
+                const rowEmail = row[emailIndex] || '';
+
+                if (rowEmail && guestData.Email && rowEmail.toLowerCase() === guestData.Email.toLowerCase()) {
+                    const visitorId = row[idIndex];
+                    console.log(`Found existing visitor with ID: ${visitorId}`);
+
+                    const existingData = {};
+                    headers.forEach((header, colIndex) => {
+                        const mapping = VISITOR_HEADER_MAP.find(m => m.aliases.some(a => header.includes(a.toLowerCase())));
+                        if (mapping) {
+                            existingData[mapping.key] = row[colIndex] || '';
+                        }
+                    });
+                    
+                    const dataToUpdate = {};
+                    if (guestData.Phone && !existingData.Phone) {
+                        dataToUpdate.Phone = guestData.Phone;
+                    }
+                    if (guestData.Subscribed && !existingData.Subscribed) {
+                        dataToUpdate.Subscribed = guestData.Subscribed;
+                    }
+
+                    if (Object.keys(dataToUpdate).length > 0) {
+                        console.log("New information found. Updating visitor record:", dataToUpdate);
+                        const updatedVisitorData = { ...existingData, ...guestData, ...dataToUpdate };
+                        const visitorRowForUpdate = await prepareRowData(VISITORS_SHEET_NAME, updatedVisitorData, VISITOR_HEADER_MAP);
+                        const rowIndex = i + 1;
+                        const endColumn = numberToColumnLetter(visitorRowForUpdate.length);
+                        const range = `${VISITORS_SHEET_NAME}!A${rowIndex}:${endColumn}${rowIndex}`;
+                        
+                        await updateSheetValues(range, [visitorRowForUpdate]);
+                        console.log(`Visitor record at row ${rowIndex} updated successfully.`);
+                    }
+
+                    return visitorId;
                 }
             }
         }
     }
 
-    // If not found, create a new visitor.
     console.log("Visitor not found, creating new record.");
     const newVisitorId = await generateUniqueVisitorId();
     const newVisitorData = {
@@ -871,6 +924,7 @@ async function findOrCreateVisitor(guestData) {
     await appendSheetValues(VISITORS_SHEET_NAME, [visitorRow]);
     return newVisitorId;
 }
+
 
 async function generateUniqueVisitorId() {
     let newId;
