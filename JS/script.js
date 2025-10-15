@@ -703,6 +703,56 @@ async function generalCheckIn(visitorData) {
     }
 }
 
+/**
+ * NEW: Checks the central 'Checkins' log to see if a visitor has already checked in for a specific event.
+ * This is the definitive check to prevent duplicates.
+ * @param {string} visitorId The unique ID of the visitor.
+ * @param {string} eventTitle The title of the event.
+ * @returns {Promise<boolean>} A promise that resolves to true if already checked in, false otherwise.
+ */
+async function checkIfAlreadyCheckedIn(visitorId, eventTitle) {
+    console.log(`DEBUG: Checking if VisitorID ${visitorId} has already checked in for event "${eventTitle}"`);
+    try {
+        const response = await getSheetValues(`${CHECKINS_SHEET_NAME}!A:D`); // Check first 4 columns
+        const rows = response.result.values;
+
+        if (!rows || rows.length < 2) {
+            console.log("DEBUG: Checkins sheet is empty or has no data.");
+            return false; // No check-ins yet, so can't be a duplicate.
+        }
+
+        const headers = rows[0].map(h => String(h || '').trim().replace(/\s+/g, '').toLowerCase());
+        const visitorIdIndex = headers.findIndex(h => h.includes('visitorid'));
+        const eventTitleIndex = headers.findIndex(h => h.includes('eventtitle'));
+
+        if (visitorIdIndex === -1 || eventTitleIndex === -1) {
+            console.error("DEBUG: Could not find 'VisitorID' or 'EventTitle' headers in Checkins sheet. Allowing check-in to proceed.");
+            return false;
+        }
+        
+        const normalizedEventTitle = eventTitle.trim().toLowerCase();
+
+        // Iterate through all existing check-in records to find a match.
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const recordVisitorId = row[visitorIdIndex] ? String(row[visitorIdIndex]).trim() : '';
+            const recordEventTitle = row[eventTitleIndex] ? String(row[eventTitleIndex]).trim().toLowerCase() : '';
+            
+            if (recordVisitorId === visitorId && recordEventTitle === normalizedEventTitle) {
+                console.log("DEBUG: Match found. Visitor has already checked in.");
+                return true; // Found a matching check-in.
+            }
+        }
+        
+        console.log("DEBUG: No matching check-in found.");
+        return false; // No match found after checking all records.
+    } catch (err) {
+        console.error("Error in checkIfAlreadyCheckedIn:", err);
+        showModalMessage('Could not verify previous check-in status. Please proceed with caution.');
+        return false; // Allow check-in to proceed if the check fails, to avoid blocking users.
+    }
+}
+
 
 async function checkInGuestAndSync(guestData, eventDetails) {
     resultsDiv.innerHTML = `<p>Checking in ${guestData.FirstName}...</p>`;
@@ -713,10 +763,19 @@ async function checkInGuestAndSync(guestData, eventDetails) {
     clearAllTimers();
 
     try {
-        // Step 1: Find or Create Visitor Record to get VisitorID
+        // Step 1: Find or Create Visitor Record to get a standardized VisitorID.
         const visitorId = await findOrCreateVisitor(guestData);
 
-        // Step 2: Update or Append to the Event Sheet
+        // Step 2: NEW - Perform the definitive check against the central log.
+        const eventTitle = eventDetails.EventTitle;
+        const alreadyCheckedIn = await checkIfAlreadyCheckedIn(visitorId, eventTitle);
+        if (alreadyCheckedIn) {
+            resultsDiv.innerText = `${guestData.FirstName} ${guestData.LastName} has already checked in for this event.`;
+            setTimeout(showKioskUI, 3000); // Return to the main kiosk screen.
+            return; // Stop the function here to prevent a duplicate check-in.
+        }
+
+        // Step 3: Update or Append guest record to the specific Event Sheet.
         const timestamp = new Date().toLocaleString();
         guestData.CheckinTimestamp = timestamp;
 
@@ -724,13 +783,10 @@ async function checkInGuestAndSync(guestData, eventDetails) {
             const guestRow = await prepareRowData(eventDetails.GuestListSheetName, guestData, GUEST_HEADER_MAP);
             await appendSheetValues(eventDetails.GuestListSheetName, [guestRow]);
         } else {
-            // FIX: The range is now calculated dynamically to prevent write errors.
             const updatedGuestRow = await prepareRowData(eventDetails.GuestListSheetName, guestData, GUEST_HEADER_MAP);
             
-            // Dynamically determine the end column based on the length of the data row.
             const endColumn = numberToColumnLetter(updatedGuestRow.length);
             if (!endColumn) {
-                // Handle case where the row is empty, though unlikely here.
                 throw new Error("Could not determine the sheet's column range because prepared data is empty.");
             }
             const range = `${eventDetails.GuestListSheetName}!A${guestData.rowIndex}:${endColumn}${guestData.rowIndex}`;
@@ -739,21 +795,18 @@ async function checkInGuestAndSync(guestData, eventDetails) {
             await updateSheetValues(range, [updatedGuestRow]);
         }
         
-        // Step 3: Log in the main Checkins Sheet
+        // Step 4: Log the successful check-in to the main Checkins Sheet.
         const checkinLogData = {
             Timestamp: timestamp,
             VisitorID: visitorId,
             FullName: `${guestData.FirstName} ${guestData.LastName}`.trim(),
-            // FIX: Use EventTitle to align with the new data key in state.js
-            EventTitle: eventDetails.EventTitle
+            EventTitle: eventTitle
         };
         const checkinRow = await prepareRowData(CHECKINS_SHEET_NAME, checkinLogData, CHECKINS_HEADER_MAP);
         await appendSheetValues(CHECKINS_SHEET_NAME, [checkinRow]);
         
-        // FIX: Use EventTitle to align with the new data key in state.js
-        resultsDiv.innerText = `Successfully checked in ${guestData.FirstName} for ${eventDetails.EventTitle}!`;
+        resultsDiv.innerText = `Successfully checked in ${guestData.FirstName} for ${eventTitle}!`;
         rotateBackgroundImage();
-        // Return to the Kiosk UI instead of the mode selection screen.
         setTimeout(showKioskUI, 2500);
 
     } catch (err) {
