@@ -68,9 +68,14 @@ export const CHECKINS_HEADER_MAP = [
 ];
 
 /**
- * New: Defines the canonical data keys for event-specific guest list sheets.
+ * PATCH: Defines the canonical data keys for event-specific guest list sheets.
+ * Added 'GuestID' and 'IsWalkin' to support the new check-in requirements.
  */
 export const GUEST_HEADER_MAP = [
+    {
+        key: 'GuestID',
+        aliases: ['Guest ID', 'GuestID', 'Visitor ID', 'VisitorID']
+    },
     {
         key: 'FirstName',
         aliases: ['First Name', 'First', 'Given Name']
@@ -89,6 +94,10 @@ export const GUEST_HEADER_MAP = [
     },
     {
         key: 'CheckinTimestamp',
-        aliases: ['Check-in Time', 'Checkin Timestamp', 'Checked In']
+        aliases: ['Check-in Time', 'Checkin Timestamp', 'Checked In', 'CheckinTimestamp']
+    },
+    {
+        key: 'IsWalkin',
+        aliases: ['Is Walk-in', 'Is Walkin', 'Walk-in', 'Walkin']
     }
 ];

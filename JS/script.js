@@ -470,7 +470,7 @@ async function searchGuest() {
     }
 
     try {
-        const response = await getSheetValues(`${sheetToSearch}!A:E`);
+        const response = await getSheetValues(`${sheetToSearch}!A:G`); // Read more columns for new data
         const rows = response.result.values;
         
         if (!rows || rows.length <= 1) {
@@ -484,7 +484,10 @@ async function searchGuest() {
         const firstNameIndex = headers.findIndex(h => h.includes('first'));
         const lastNameIndex = headers.findIndex(h => h.includes('last'));
         const checkinTimeIndex = headers.findIndex(h => h.includes('check-in') || h.includes('checked in'));
-        const visitorIdIndex = (currentMode === 'general') ? headers.findIndex(h => h.includes('id')) : -1;
+        
+        // Use a more general 'id' search for robustness across sheets
+        const guestIdIndex = headers.findIndex(h => h.includes('id'));
+
 
         const matches = [];
         const cleanedSearchTerm = rawSearchTerm.replace(/\s+/g, ''); // Remove spaces for better matching
@@ -517,7 +520,7 @@ async function searchGuest() {
                     LastName: lastName,
                     Email: email,
                     Phone: row[phoneIndex] || '',
-                    VisitorID: (currentMode === 'general' && visitorIdIndex > -1) ? row[visitorIdIndex] : null,
+                    GuestID: (guestIdIndex > -1) ? row[guestIdIndex] : null,
                     hasCheckedIn: !!row[checkinTimeIndex]
                 });
             }
@@ -753,7 +756,13 @@ async function checkIfAlreadyCheckedIn(visitorId, eventTitle) {
     }
 }
 
-
+/**
+ * PATCH: This function has been rewritten to implement the new event check-in requirements.
+ * It now syncs with the main Visitors sheet to get a GuestID, determines if the guest
+ * is a walk-in, and updates the event-specific sheet with all relevant information.
+ * @param {Object} guestData - The data object for the guest being checked in.
+ * @param {Object} eventDetails - The data object for the selected event.
+ */
 async function checkInGuestAndSync(guestData, eventDetails) {
     resultsDiv.innerHTML = `<p>Checking in ${guestData.FirstName}...</p>`;
     resultsDiv.style.display = 'block';
@@ -763,39 +772,46 @@ async function checkInGuestAndSync(guestData, eventDetails) {
     clearAllTimers();
 
     try {
-        // Step 1: Find or Create Visitor Record to get a standardized VisitorID.
+        // Step 1: Find or Create Visitor in main 'Visitors' sheet to get a consistent VisitorID.
         const visitorId = await findOrCreateVisitor(guestData);
 
-        // Step 2: NEW - Perform the definitive check against the central log.
+        // Step 2: Definitive check against the central 'Checkins' log to prevent duplicates for this event.
         const eventTitle = eventDetails.EventTitle;
         const alreadyCheckedIn = await checkIfAlreadyCheckedIn(visitorId, eventTitle);
         if (alreadyCheckedIn) {
             resultsDiv.innerText = `${guestData.FirstName} ${guestData.LastName} has already checked in for this event.`;
-            setTimeout(showKioskUI, 3000); // Return to the main kiosk screen.
-            return; // Stop the function here to prevent a duplicate check-in.
+            setTimeout(showKioskUI, 3000);
+            return;
         }
 
-        // Step 3: Update or Append guest record to the specific Event Sheet.
+        // Step 3: Prepare the complete data payload for the event-specific guest sheet.
         const timestamp = new Date().toLocaleString();
-        guestData.CheckinTimestamp = timestamp;
+        const dataForEventSheet = {
+            ...guestData, // Carry over existing data like FirstName, LastName, Email, Phone, rowIndex
+            GuestID: visitorId,
+            CheckinTimestamp: timestamp,
+            IsWalkin: !!guestData.isWalkIn // Coerce to boolean; true for registrations, false for pre-listed guests.
+        };
+
+        // Step 4: Update or Append the record in the specific Event Sheet.
+        const eventSheetName = eventDetails.GuestListSheetName;
+        const guestRow = await prepareRowData(eventSheetName, dataForEventSheet, GUEST_HEADER_MAP);
 
         if (guestData.isWalkIn) {
-            const guestRow = await prepareRowData(eventDetails.GuestListSheetName, guestData, GUEST_HEADER_MAP);
-            await appendSheetValues(eventDetails.GuestListSheetName, [guestRow]);
+            // This is a new guest for this event, so append them to the list.
+            await appendSheetValues(eventSheetName, [guestRow]);
         } else {
-            const updatedGuestRow = await prepareRowData(eventDetails.GuestListSheetName, guestData, GUEST_HEADER_MAP);
-            
-            const endColumn = numberToColumnLetter(updatedGuestRow.length);
-            if (!endColumn) {
-                throw new Error("Could not determine the sheet's column range because prepared data is empty.");
+            // This guest was pre-listed, so update their existing row.
+            const endColumn = numberToColumnLetter(guestRow.length);
+            if (!endColumn || !guestData.rowIndex) {
+                throw new Error("Could not determine the sheet's column range or guest row index for update.");
             }
-            const range = `${eventDetails.GuestListSheetName}!A${guestData.rowIndex}:${endColumn}${guestData.rowIndex}`;
-            console.log(`DEBUG: Dynamically determined update range: ${range}`);
-            
-            await updateSheetValues(range, [updatedGuestRow]);
+            const range = `${eventSheetName}!A${guestData.rowIndex}:${endColumn}${guestData.rowIndex}`;
+            console.log(`DEBUG: Dynamically determined update range for event guest: ${range}`);
+            await updateSheetValues(range, [guestRow]);
         }
         
-        // Step 4: Log the successful check-in to the main Checkins Sheet.
+        // Step 5: Log the successful check-in to the central 'Checkins' Sheet for historical records.
         const checkinLogData = {
             Timestamp: timestamp,
             VisitorID: visitorId,
@@ -815,6 +831,7 @@ async function checkInGuestAndSync(guestData, eventDetails) {
         startInactivityTimer();
     }
 }
+
 
 async function findOrCreateVisitor(guestData) {
     // Search the main Visitors sheet by email.
