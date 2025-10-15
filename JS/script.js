@@ -444,12 +444,14 @@ function showInactivityModal() {
 }
 
 /**
- * PATCH: When user clicks "I'm still here", just clear the timers.
- * The timer will wait for the next interaction to start again.
+ * PATCH: When user clicks "I'm still here", hide the modal and reset the main inactivity timer.
+ * This ensures that if the user walks away again, the inactivity process will restart.
  */
 function hideInactivityModal() {
     inactivityModal.style.display = 'none';
-    clearAllTimers();
+    clearTimeout(countdownTimeout);
+    clearInterval(countdownInterval);
+    resetInactivityTimer(); // This will restart the 60-second timer.
 }
 stayButton.onclick = hideInactivityModal;
 
@@ -1049,3 +1051,4 @@ function rotateBackgroundImage() {
     const escapedImageUrl = imageUrl.replace(/'/g, "\\'").replace(/"/g, '\\"');
     document.body.style.backgroundImage = `linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)), url('${escapedImageUrl}')`;
 }
+
