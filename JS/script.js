@@ -14,6 +14,7 @@ let tokenRefreshTimeout = null;
 let inactivityTimeout = null;
 let countdownTimeout = null;
 let countdownInterval = null;
+let inactivityTimerStarted = false; // PATCH: Tracks if the timer has been started by user action.
 let activeEvents = [];
 let selectedEvent = null;
 let currentGuestData = null; // To hold guest data during the update flow
@@ -92,7 +93,13 @@ function addEventListeners() {
     document.addEventListener('webkitfullscreenchange', updateFullscreenIcon);
     document.addEventListener('mozfullscreenchange', updateFullscreenIcon);
     document.addEventListener('MSFullscreenChange', updateFullscreenIcon);
+
+    // PATCH: Add global listeners to manage the inactivity timer based on user actions.
+    document.addEventListener('click', handleUserInteraction);
+    document.addEventListener('input', handleUserInteraction);
+    document.addEventListener('keypress', handleUserInteraction);
 }
+
 
 // --- UTILITY FUNCTIONS ---
 /**
@@ -323,8 +330,8 @@ function showKioskUI() {
     showRegistrationButton.onclick = showRegistrationUI;
     backToSearchButton.onclick = showKioskUI; // This now goes back to the search within the current event/mode
     
-    // Ensure the inactivity timer is active on this screen.
-    resetInactivityTimer();
+    // PATCH: Clear all timers. The timer will now only start on the next user interaction.
+    clearAllTimers();
 }
 
 function showRegistrationUI() {
@@ -333,7 +340,7 @@ function showRegistrationUI() {
     resultsDiv.innerHTML = '';
     registrationForm.style.display = 'block';
     registerButton.onclick = registerWalkIn;
-    startInactivityTimer();
+    // PATCH: The timer is now started by the global interaction handler, no need to call it here.
 }
 
 function showUpdateGuestInfo(guestData) {
@@ -363,24 +370,58 @@ function showUpdateGuestInfo(guestData) {
 
     updateAndCheckinButton.onclick = handleUpdateAndCheckin;
     backToEventSearchButton.onclick = showKioskUI;
-    startInactivityTimer();
+    // PATCH: The timer is now started by the global interaction handler, no need to call it here.
 }
 
 // --- INACTIVITY TIMER ---
 
+/**
+ * PATCH: New function to handle user interaction and manage the inactivity timer.
+ * It starts the timer on the first interaction and resets it on subsequent ones.
+ */
+function handleUserInteraction() {
+    // Only manage the timer when a visitor-facing UI is active.
+    const isVisitorUIVisible = visitorSection.style.display === 'block' || 
+                               registrationForm.style.display === 'block' || 
+                               updateGuestInfoSection.style.display === 'block';
+
+    if (isVisitorUIVisible) {
+        if (!inactivityTimerStarted) {
+            startInactivityTimer();
+        } else {
+            resetInactivityTimer();
+        }
+    }
+}
+
+/**
+ * PATCH: Clears all timers and resets the tracking flag. This fully stops the
+ * inactivity process until a new user interaction occurs.
+ */
 function clearAllTimers() {
     clearTimeout(inactivityTimeout);
     clearTimeout(countdownTimeout);
     clearInterval(countdownInterval);
+    inactivityTimerStarted = false;
 }
 
+/**
+ * PATCH: Starts the master inactivity timer and sets the tracking flag.
+ */
 function startInactivityTimer() {
-    clearAllTimers();
+    clearTimeout(inactivityTimeout); // Clear previous master timer
+    inactivityTimerStarted = true;
     inactivityTimeout = setTimeout(showInactivityModal, 60 * 1000); // 60 seconds
 }
 
+/**
+ * PATCH: Resets the timer only if it has already been started by a user.
+ * This is called on subsequent user interactions.
+ */
 function resetInactivityTimer() {
-    startInactivityTimer();
+    if (inactivityTimerStarted) {
+        startInactivityTimer();
+    }
 }
 
 function showInactivityModal() {
@@ -398,15 +439,17 @@ function showInactivityModal() {
         if (secondsLeft <= 0) clearInterval(countdownInterval);
     }, 1000);
 
-    // CHANGE: On inactivity timeout, return to the clean kiosk screen for the
-    // currently selected mode instead of logging out.
+    // On inactivity timeout, return to the clean kiosk screen.
     countdownTimeout = setTimeout(showKioskUI, 10 * 1000);
 }
 
+/**
+ * PATCH: When user clicks "I'm still here", just clear the timers.
+ * The timer will wait for the next interaction to start again.
+ */
 function hideInactivityModal() {
     inactivityModal.style.display = 'none';
     clearAllTimers();
-    resetInactivityTimer();
 }
 stayButton.onclick = hideInactivityModal;
 
@@ -661,7 +704,7 @@ async function registerWalkIn() {
         } catch (err) {
             console.error('Error checking for existing visitor:', err);
             resultsDiv.innerText = `Error: ${err.result?.error?.message || err.message}`;
-            startInactivityTimer();
+            // Intentionally not starting timer here, as an error is not a user action.
             return;
         }
     }
@@ -698,7 +741,6 @@ async function generalRegisterAndCheckIn(walkinData) {
     } catch(err) {
         console.error('Error during general registration:', err);
         resultsDiv.innerText = `Registration Error: ${err.result?.error?.message || err.message}`;
-        startInactivityTimer();
     }
 }
 
@@ -847,7 +889,6 @@ async function checkInGuestAndSync(guestData, eventDetails) {
     } catch (err) {
         console.error('Error in checkInGuestAndSync:', err);
         resultsDiv.innerText = `Sync Error: ${err.result?.error?.message || err.message}`;
-        startInactivityTimer();
     }
 }
 
