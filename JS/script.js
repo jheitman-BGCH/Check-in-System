@@ -642,7 +642,7 @@ function displaySearchResults(matches) {
 }
 
 function displayNoResults() {
-    resultsDiv.innerHTML = '<p>Visitor not found. Please register below.</p>';
+    resultsDiv.innerHTML = '<p>We couldn\'t find you on the guest list. Please register below.</p>';
     // BUGFIX: Use the new helper function to correctly check if walk-ins should be shown.
     if (areWalkinsAllowed(selectedEvent)) {
         showRegistrationButton.style.display = 'block';
@@ -777,7 +777,7 @@ async function generalCheckIn(visitorData) {
         };
         const checkinRow = await prepareRowData(CHECKINS_SHEET_NAME, checkinDataObject, CHECKINS_HEADER_MAP);
         await appendSheetValues(CHECKINS_SHEET_NAME, [checkinRow]);
-        resultsDiv.innerText = `Successfully checked in ${visitorData.FirstName}!`;
+        resultsDiv.innerText = `Welcome, ${visitorData.FirstName}! We're glad you're here.`;
         rotateBackgroundImage();
         setTimeout(showKioskUI, 2000);
     } catch (err) {
@@ -901,7 +901,7 @@ async function checkInGuestAndSync(guestData, eventDetails) {
         const checkinRow = await prepareRowData(CHECKINS_SHEET_NAME, checkinLogData, CHECKINS_HEADER_MAP);
         await appendSheetValues(CHECKINS_SHEET_NAME, [checkinRow]);
         
-        resultsDiv.innerText = `Successfully checked in ${guestData.FirstName} for ${eventTitle}!`;
+        resultsDiv.innerText = `Welcome, ${guestData.FirstName}! Enjoy the ${eventTitle}.`;
         rotateBackgroundImage();
         setTimeout(showKioskUI, 2500);
 
