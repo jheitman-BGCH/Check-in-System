@@ -102,6 +102,21 @@ function addEventListeners() {
 
 
 // --- UTILITY FUNCTIONS ---
+
+/**
+ * NEW: Checks if the event object allows for walk-in registrations.
+ * Handles both 'TRUE' from Google Sheets and 'Yes' for General Visits.
+ * @param {object} event The event object to check.
+ * @returns {boolean} True if walk-ins are allowed, false otherwise.
+ */
+function areWalkinsAllowed(event) {
+    if (!event || !event.AllowWalkins) {
+        return false;
+    }
+    const value = String(event.AllowWalkins).trim().toLowerCase();
+    return value === 'true' || value === 'yes';
+}
+
 /**
  * Converts a 1-based column number to its A1 notation letter equivalent.
  * e.g., 1 -> 'A', 27 -> 'AA'.
@@ -315,7 +330,8 @@ function showKioskUI() {
 
     // FIX: Use EventTitle to align with the new data key in state.js
     kioskTitle.textContent = selectedEvent ? `${selectedEvent.EventTitle} Check-in` : 'General Visitor Check-in';
-    showRegistrationButton.style.display = (selectedEvent && selectedEvent.AllowWalkins && selectedEvent.AllowWalkins.toLowerCase() === 'yes') ? 'block' : 'none';
+    // BUGFIX: Use the new helper function to correctly check if walk-ins are allowed.
+    showRegistrationButton.style.display = areWalkinsAllowed(selectedEvent) ? 'block' : 'none';
     
     resultsDiv.innerHTML = '';
     searchBox.value = '';
@@ -627,7 +643,8 @@ function displaySearchResults(matches) {
 
 function displayNoResults() {
     resultsDiv.innerHTML = '<p>Visitor not found. Please register below.</p>';
-    if (selectedEvent && selectedEvent.AllowWalkins && selectedEvent.AllowWalkins.toLowerCase() === 'yes') {
+    // BUGFIX: Use the new helper function to correctly check if walk-ins should be shown.
+    if (areWalkinsAllowed(selectedEvent)) {
         showRegistrationButton.style.display = 'block';
     }
 }
@@ -1051,4 +1068,3 @@ function rotateBackgroundImage() {
     const escapedImageUrl = imageUrl.replace(/'/g, "\\'").replace(/"/g, '\\"');
     document.body.style.backgroundImage = `linear-gradient(to right, rgba(0, 90, 156, 0.85), rgba(0, 123, 255, 0.4)), url('${escapedImageUrl}')`;
 }
-
