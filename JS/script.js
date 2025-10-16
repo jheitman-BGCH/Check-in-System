@@ -128,6 +128,30 @@ function clearVisitorInputs() {
     resultsDiv.innerHTML = '';
 }
 
+/**
+ * NEW: Masks an email address for display purposes.
+ * e.g., "verylongemail@example.com" becomes "ver***@example.com"
+ * e.g., "joe@example.com" becomes "j**@example.com"
+ * @param {string} email The email address to mask.
+ * @returns {string} The masked email address.
+ */
+function maskEmail(email) {
+    if (!email || email.indexOf('@') === -1) {
+        return email; // Return original if not a valid email format
+    }
+    const [localPart, domain] = email.split('@');
+    if (localPart.length <= 1) {
+        return `*@${domain}`;
+    }
+    // For short local parts (2-4 chars), show 1 char and mask the rest
+    if (localPart.length <= 4) {
+        return `${localPart.substring(0, 1)}${'*'.repeat(localPart.length - 1)}@${domain}`;
+    }
+    // For longer local parts, show the first 3 characters and add asterisks
+    const maskedLocalPart = localPart.substring(0, 3) + '***';
+    return `${maskedLocalPart}@${domain}`;
+}
+
 
 /**
  * NEW: Checks if the event object allows for walk-in registrations.
@@ -665,7 +689,11 @@ function displaySearchResults(matches) {
         } else {
             const button = document.createElement('button');
             button.className = 'result-button';
-            button.textContent = `${guestData.FirstName} ${guestData.LastName} (${guestData.Email || guestData.Phone})`;
+            
+            // PATCH: Mask email before displaying it for privacy.
+            const displayIdentifier = guestData.Email ? maskEmail(guestData.Email) : guestData.Phone;
+            button.textContent = `${guestData.FirstName} ${guestData.LastName} (${displayIdentifier})`;
+            
             button.onclick = () => handleGuestSelection(guestData);
             resultsDiv.appendChild(button);
         }
