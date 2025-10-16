@@ -199,6 +199,7 @@ hr {
     border: 1px solid #dee2e6;
     padding: 10px 20px;
     margin-top: 0; /* Remove top margin for list items */
+    margin-bottom: 5px; /* Add a touch of space below each button */
 }
 
 #results .result-button:hover {
@@ -282,4 +283,3 @@ hr {
 #fullscreen-button:hover svg {
     transform: scale(1.1);
 }
-
