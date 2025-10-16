@@ -104,6 +104,32 @@ function addEventListeners() {
 // --- UTILITY FUNCTIONS ---
 
 /**
+ * NEW: Central function to clear all visitor-facing input fields and results.
+ * This ensures a clean state when returning to the main kiosk screen.
+ */
+function clearVisitorInputs() {
+    // Search
+    searchBox.value = '';
+
+    // Registration Form
+    firstNameInput.value = '';
+    lastNameInput.value = '';
+    emailInput.value = '';
+    phoneInput.value = '';
+    subscribeCheckbox.checked = false;
+
+    // Update Form
+    // The name fields are readonly and pre-populated, so they don't need clearing.
+    updateEmailInput.value = '';
+    updatePhoneInput.value = '';
+    updateSubscribeCheckbox.checked = false;
+
+    // Results
+    resultsDiv.innerHTML = '';
+}
+
+
+/**
  * NEW: Checks if the event object allows for walk-in registrations.
  * Handles both 'TRUE' from Google Sheets and 'Yes' for General Visits.
  * @param {object} event The event object to check.
@@ -328,13 +354,18 @@ function showKioskUI() {
     updateGuestInfoSection.style.display = 'none';
     resultsDiv.style.display = 'block'; // Make sure results are visible
 
-    // FIX: Use EventTitle to align with the new data key in state.js
     kioskTitle.textContent = selectedEvent ? `${selectedEvent.EventTitle} Check-in` : 'General Visitor Check-in';
-    // BUGFIX: Use the new helper function to correctly check if walk-ins are allowed.
     showRegistrationButton.style.display = areWalkinsAllowed(selectedEvent) ? 'block' : 'none';
     
-    resultsDiv.innerHTML = '';
-    searchBox.value = '';
+    // NEW: Dynamically set registration button text based on the current mode.
+    if (currentMode === 'general') {
+        showRegistrationButton.textContent = 'New Visitor? Register Here';
+    } else { // 'event' mode
+        showRegistrationButton.textContent = 'Not on the guest list? Register Here';
+    }
+
+    // NEW: Clear all form fields and results for a fresh start.
+    clearVisitorInputs();
     
     // Wire up buttons for the current context
     searchButton.onclick = searchGuest;
@@ -642,7 +673,12 @@ function displaySearchResults(matches) {
 }
 
 function displayNoResults() {
-    resultsDiv.innerHTML = '<p>We couldn\'t find you on the guest list. Please register below.</p>';
+    // NEW: Differentiate the "not found" message based on the mode.
+    if (currentMode === 'general') {
+        resultsDiv.innerHTML = '<p>We couldn\'t find a record for you. Please register below.</p>';
+    } else {
+        resultsDiv.innerHTML = '<p>We couldn\'t find you on the guest list. Please register below.</p>';
+    }
     // BUGFIX: Use the new helper function to correctly check if walk-ins should be shown.
     if (areWalkinsAllowed(selectedEvent)) {
         showRegistrationButton.style.display = 'block';
